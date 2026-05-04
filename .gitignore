@@ -1,0 +1,28 @@
+node_modules/
+.cache/
+.DS_Store
+*.log
+*.tmp
+.env
+.env.*
+!.env.example
+
+# Build artifacts (Phase A may add)
+dist/
+build/
+
+# Test artifacts
+coverage/
+.nyc_output/
+*.bak
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*~
+
+# Local-only state (matches parent wizard pattern)
+.metrics/
+.reviews/latest-review.md
+.reviews/response.json

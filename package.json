@@ -1,0 +1,27 @@
+{
+  "name": "opencode-sdlc-wizard",
+  "version": "0.0.1",
+  "description": "SDLC enforcement for OpenCode CLI — privacy-first, any-backend portability. Sibling of agentic-sdlc-wizard and codex-sdlc-wizard. Bootstrap stage.",
+  "keywords": [
+    "opencode",
+    "sdlc",
+    "tdd",
+    "ai-agent",
+    "developer-tools",
+    "code-quality",
+    "privacy-first",
+    "local-llm"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BaseInfinity/opencode-sdlc-wizard.git"
+  },
+  "homepage": "https://github.com/BaseInfinity/opencode-sdlc-wizard",
+  "bugs": {
+    "url": "https://github.com/BaseInfinity/opencode-sdlc-wizard/issues"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
