@@ -58,6 +58,16 @@ if [ "$match_count" -ge 12 ] && [ "$installed_count" -eq 0 ]; then
 else
     fail "re-install not idempotent: $installed_count installed, $match_count matched"
 fi
+# Stamp idempotency: installed_at field must be preserved across no-op re-runs
+stamp1=$(grep "^installed_at=" "$target/.opencode/.wizard-stamp")
+sleep 1
+bash "$INSTALLER" --target-dir "$target" >/dev/null
+stamp2=$(grep "^installed_at=" "$target/.opencode/.wizard-stamp")
+if [ "$stamp1" = "$stamp2" ]; then
+    pass "wizard-stamp installed_at preserved across no-op re-run (true idempotency)"
+else
+    fail "wizard-stamp installed_at changed on no-op re-run: '$stamp1' → '$stamp2'"
+fi
 rm -rf "$target"
 
 # 3. Customized file → preserved without --force

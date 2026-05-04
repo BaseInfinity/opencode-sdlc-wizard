@@ -108,6 +108,32 @@ else
     fail "precompact handler missing exit-2 block contract"
 fi
 
+# 7. session.created dispatched via generic `event` handler (per OpenCode docs).
+# The earlier "session.created" as direct handler key was a P0 — OpenCode
+# session events flow through the generic `event` channel. Accept either
+# `===` or `!==` (early-return) discrimination form.
+if grep -qE '^\s*event:\s*async' "$PLUGIN" && grep -qE 'event\.type[[:space:]]*(===|!==)[[:space:]]*"session\.created"' "$PLUGIN"; then
+    pass "session.created handled via generic event handler with event.type discriminator"
+else
+    fail "session.created not dispatched via generic event handler (P0 — direct event-name keys don't fire)"
+fi
+
+# 8. tool.execute.before handler signature is (input, output) per OpenCode docs.
+# Earlier signature `({ tool, args })` was P0 — OpenCode passes input.tool +
+# output.args separately.
+if grep -qE '"tool\.execute\.before":[[:space:]]*async[[:space:]]*\([[:space:]]*input[[:space:]]*,[[:space:]]*output[[:space:]]*\)' "$PLUGIN"; then
+    pass "tool.execute.before uses (input, output) signature"
+else
+    fail "tool.execute.before signature wrong (P0 — must be (input, output) not destructured object)"
+fi
+
+# 9. Tool ids are lowercase per OpenCode (write/edit/apply_patch/multiedit), not Claude-style PascalCase
+if grep -qE '"write"|"edit"|"apply_patch"' "$PLUGIN" && ! grep -qE 'TDD_TARGET_TOOLS.*"Write"' "$PLUGIN"; then
+    pass "TDD target tool ids are lowercase (OpenCode convention)"
+else
+    fail "TDD target tool ids still use Claude PascalCase (will not match in OpenCode)"
+fi
+
 echo ""
 echo "=== Results: $PASSED passed, $FAILED failed ==="
 [ "$FAILED" -gt 0 ] && exit 1

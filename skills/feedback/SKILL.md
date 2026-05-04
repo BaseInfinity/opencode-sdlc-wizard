@@ -1,67 +1,89 @@
 ---
 name: feedback
-description: Submit feedback, bug reports, feature requests, or share SDLC patterns you've discovered. Privacy-first — always asks before scanning.
-argument-hint: [optional: bug | feature | pattern | improvement]
-effort: medium
+description: Privacy-first feedback loop for OpenCode SDLC wizard usage — capture bugs, feature requests, patterns, and improvements without scanning the repo unless the user explicitly allows it.
 ---
-# Feedback — Community Contribution Loop
 
-## Task
-$ARGUMENTS
+# Feedback
 
 ## Purpose
 
-Help users contribute back to the SDLC wizard: bug reports, feature requests, pattern sharing, and SDLC improvements. Privacy-first — never scan without explicit permission.
+Help the user contribute back to the OpenCode SDLC wizard:
 
-## Privacy & Permission (MANDATORY)
+- bug reports
+- feature requests
+- working patterns
+- process improvements
 
-**NEVER scan the user's repo without explicit consent.** Always ask first:
+Privacy first. Never scan the repo without explicit permission.
 
-> "I can scan your SDLC setup to identify what you've customized vs wizard defaults. This helps me create a more specific report. May I scan? (Only file names and SDLC config are read — no source code, secrets, or business logic.)"
+## Mandatory permission rule
 
-**What IS scanned (with permission):**
-- SDLC.md, TESTING.md, CLAUDE.md structure (not content details)
-- Hook file names and which hooks are active
-- Skill names and which skills exist
-- .claude/settings.json hook configuration (not allowedTools or secrets)
+Before scanning anything beyond obvious SDLC file names, ask first.
 
-**What is NEVER scanned:**
-- Source code files
-- .env files, secrets, credentials
-- Business logic or proprietary code
-- Git history or commit messages
+Use this exact shape when asking:
 
-## Feedback Types
+> "I can scan your SDLC setup to identify what you've customized versus
+> wizard defaults. This helps me create a more specific report. May I
+> scan? Only SDLC file names and config are read — no source code,
+> secrets, or business logic."
 
-### Bug Report
-1. Ask user to describe the issue
-2. With permission, check which wizard version is installed (`SDLC.md` metadata)
-3. Check if hooks are properly configured
-4. Create a GitHub issue with reproduction steps
+Only scan:
 
-### Feature Request
-1. Ask user what they want
-2. With permission, check if a similar capability already exists in their setup
-3. Create a GitHub issue with the request and context
+- repo-local SDLC docs (`AGENTS.md`, `SDLC.md`, `TESTING.md`,
+  `ARCHITECTURE.md`)
+- hook file names and which hooks are active (`.opencode/hooks/`)
+- skill directory names (`.opencode/skills/`)
+- `.opencode/.wizard-stamp` (wizard version + install date)
 
-### Pattern Sharing
-1. Ask user what pattern they've discovered (custom hook, modified philosophy, test approach)
-2. With permission, diff their SDLC setup against wizard defaults to identify customizations
+**Never read** application code, `opencode.json`'s provider keys,
+`.env` files, secrets, git history, or commit messages.
+
+## Feedback footprint
+
+Per the [skill-triple pattern](https://github.com/BaseInfinity/xdlc/blob/main/docs/skill-triple-pattern.md),
+the feedback skill writes **nothing in the consumer repo except an
+append-only log file**. It never edits the case-study body, never
+modifies setup-managed files. The only local write is to
+`.opencode/feedback-log.md` (append-only) for traceability.
+
+## Feedback types
+
+### Bug report
+
+1. Ask the user to describe the issue.
+2. With permission, capture installed wizard version (from
+   `.opencode/.wizard-stamp`).
+3. With permission, capture which hooks are present and executable.
+4. Open a GitHub issue with reproduction steps.
+
+### Feature request
+
+1. Ask what the user wants.
+2. With permission, check whether a similar capability exists already.
+3. Open a GitHub issue with the request and context.
+
+### Pattern sharing
+
+1. Ask what pattern the user has discovered (custom hook, modified
+   plugin behavior, test approach).
+2. With permission, diff the user's `.opencode/` against upstream
+   defaults to identify customizations.
 3. Ask: "Which of these customizations worked well for you?"
-4. Create a GitHub issue describing the pattern and evidence it works
+4. Open a GitHub issue describing the pattern with evidence.
 
-### SDLC Improvement
-1. Ask what could be better about the SDLC workflow
-2. With permission, check which SDLC steps they use most/least
-3. Create a GitHub issue with the improvement suggestion
+### SDLC improvement
 
-## Creating the Issue
+1. Ask what could be better about the workflow.
+2. With permission, check which SDLC steps the user invokes most/least.
+3. Open a GitHub issue with the improvement suggestion.
 
-Use `gh issue create` on the wizard repo:
+## Creating the issue
+
+Use `gh issue create` against the wizard repo:
 
 ```bash
 gh issue create \
-  --repo BaseInfinity/claude-sdlc-wizard \
+  --repo BaseInfinity/opencode-sdlc-wizard \
   --title "[feedback-type]: Brief description" \
   --body "$(cat <<'EOF'
 ## Feedback Type
@@ -71,22 +93,47 @@ bug / feature / pattern / improvement
 [User's description]
 
 ## Context
-- Wizard version: [from SDLC.md metadata]
-- Setup type: [detected stack if permission granted]
+- Wizard version: [from .opencode/.wizard-stamp]
+- OpenCode backend (if disclosed): [model id from opencode.json]
+- Domain (if disclosed): firmware / data-science / CLI / web
 
 ## Evidence (if pattern sharing)
 [What the user customized and why it worked]
 
 ---
-Submitted via `/feedback` skill
+Submitted via skill({ name: "feedback" })
 EOF
 )"
 ```
 
+## Race-check discipline
+
+Between "read context" (steps 1-3) and "open issue" (final step),
+another skill (update) could have changed the wizard metadata. Compute
+a small hash of `.opencode/.wizard-stamp` at the start of the flow,
+re-read + re-compare before filing. Mismatch aborts filing; draft
+fields are preserved in a transient file at `.opencode/feedback-draft.tmp`
+for recovery. Lock-free optimistic concurrency.
+
+## No credential handling
+
+Delegate auth entirely to `gh` CLI. The skill never reads, stores, or
+transmits tokens. Account-mismatch warning surfaces "you're authed as
+X, filing to Y — continue?" so the user catches wrong-account mistakes
+without any credential code in the skill.
+
+## No local fallback
+
+If upstream filing fails (permissions, archive, private), stop and
+print the body for manual submission. Do not fall back to filing in
+the consumer's own repo — that defeats the upstream-loop purpose.
+
 ## Rules
 
 - **Privacy first** — always ask before scanning anything
-- **Opt-in only** — if user declines scan, still create the issue with whatever they tell you manually
+- **Opt-in only** — if user declines scan, still create the issue with
+  whatever they tell you manually
 - **No source code** — never include source code snippets in issues
-- **Be specific** — vague issues waste maintainer time. Ask clarifying questions
-- **Check for duplicates** — `gh issue list --repo BaseInfinity/claude-sdlc-wizard --search "keywords"` before creating
+- **Be specific** — vague issues waste maintainer time; ask clarifying
+  questions
+- **Check duplicates** — `gh issue list --repo BaseInfinity/opencode-sdlc-wizard --search "keywords"` before creating

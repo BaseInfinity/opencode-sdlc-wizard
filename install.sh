@@ -65,8 +65,8 @@ REQUIRED_SOURCES=(
   ".opencode/hooks/model-effort-check.sh"
   ".opencode/hooks/precompact-seam-check.sh"
   "skills/sdlc/SKILL.md"
-  "skills/setup/SKILL.md"
-  "skills/update/SKILL.md"
+  "skills/setup-wizard/SKILL.md"
+  "skills/update-wizard/SKILL.md"
   "skills/feedback/SKILL.md"
 )
 
@@ -86,8 +86,8 @@ declare_target() {
     ".opencode/plugins/sdlc-wizard.js") echo ".opencode/plugins/sdlc-wizard.js" ;;
     ".opencode/hooks/"*) echo "$1" ;;
     "skills/sdlc/SKILL.md") echo ".opencode/skills/sdlc/SKILL.md" ;;
-    "skills/setup/SKILL.md") echo ".opencode/skills/setup/SKILL.md" ;;
-    "skills/update/SKILL.md") echo ".opencode/skills/update/SKILL.md" ;;
+    "skills/setup-wizard/SKILL.md") echo ".opencode/skills/setup-wizard/SKILL.md" ;;
+    "skills/update-wizard/SKILL.md") echo ".opencode/skills/update-wizard/SKILL.md" ;;
     "skills/feedback/SKILL.md") echo ".opencode/skills/feedback/SKILL.md" ;;
     *) echo "$1" ;;
   esac
@@ -146,14 +146,19 @@ for h in "$TARGET_DIR/.opencode/hooks/"*.sh; do
   [ -f "$h" ] && chmod +x "$h"
 done
 
-# Drop a metadata stamp so update/check can detect drift later
+# Drop a metadata stamp so update/check can detect drift later. Only
+# (re)write the stamp when something actually changed — preserves the
+# original installed_at on no-op re-runs (idempotency).
 META_DIR="$TARGET_DIR/.opencode"
 mkdir -p "$META_DIR"
-{
-  echo "# Managed by opencode-sdlc-wizard. Do not edit by hand."
-  echo "wizard_version=$WIZARD_VERSION"
-  echo "installed_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-} > "$META_DIR/.wizard-stamp"
+STAMP_FILE="$META_DIR/.wizard-stamp"
+if [ ! -f "$STAMP_FILE" ] || [ "$INSTALLED" -gt 0 ] || [ "$UPDATED" -gt 0 ]; then
+  {
+    echo "# Managed by opencode-sdlc-wizard. Do not edit by hand."
+    echo "wizard_version=$WIZARD_VERSION"
+    echo "installed_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  } > "$STAMP_FILE"
+fi
 
 echo ""
 echo "Summary: $INSTALLED installed, $UPDATED overwrote, $SKIPPED kept-customized."

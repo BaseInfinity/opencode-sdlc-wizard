@@ -51,12 +51,36 @@ else
     fail ".opencode/plugins/sdlc-wizard.js missing"
 fi
 
-# 4 skills
-for sk in sdlc setup update feedback; do
+# 4 skills (setup/update use the -wizard suffix to match OpenCode's
+# requirement that frontmatter `name` matches the directory name)
+for sk in sdlc setup-wizard update-wizard feedback; do
     if [ -f "$REPO_ROOT/skills/$sk/SKILL.md" ]; then
         pass "skills/$sk/SKILL.md exists"
     else
         fail "skills/$sk/SKILL.md missing"
+    fi
+done
+
+# Skill frontmatter `name` MUST match directory name (OpenCode discovery rule)
+for sk in sdlc setup-wizard update-wizard feedback; do
+    actual_name=$(awk '/^name:/ {print $2; exit}' "$REPO_ROOT/skills/$sk/SKILL.md" 2>/dev/null)
+    if [ "$actual_name" = "$sk" ]; then
+        pass "skills/$sk/SKILL.md frontmatter name matches directory ($sk)"
+    else
+        fail "skills/$sk/SKILL.md frontmatter name='$actual_name' but dir='$sk' (OpenCode discovery requires match)"
+    fi
+done
+
+# Skills must NOT contain stale Claude-only references after the OpenCode adaptation
+# (the helper-skills audit in v0.1.0 rewrote setup-wizard/update-wizard/feedback to
+# OpenCode-native; sdlc still references Claude tooling because it's mostly cross-agent
+# workflow guidance, but it should not invoke Claude-only commands as required)
+for stale in "CLAUDE_CODE_SDLC_WIZARD" "agentic-sdlc-wizard" "claude-sdlc-wizard"; do
+    found=$(grep -lr "$stale" "$REPO_ROOT/skills/setup-wizard/" "$REPO_ROOT/skills/update-wizard/" "$REPO_ROOT/skills/feedback/" 2>/dev/null || true)
+    if [ -z "$found" ]; then
+        pass "helper skills (setup-wizard/update-wizard/feedback) free of stale '$stale' reference"
+    else
+        fail "helper skills still contain '$stale': $found"
     fi
 done
 
@@ -95,13 +119,35 @@ for hook in $REPO_ROOT/hooks/*.sh $REPO_ROOT/.opencode/hooks/*.sh; do
     [ -x "$hook" ] && pass "$(basename "$hook") executable [$(dirname "$hook" | xargs basename)/]" || fail "$(basename "$hook") not executable [$(dirname "$hook" | xargs basename)/]"
 done
 
-# Plugin uses correct OpenCode event names (no Claude-isms leak through)
+# Plugin uses correct OpenCode event names (no Claude-isms leak through).
+# Note: session.created is dispatched via the GENERIC `event` handler with
+# event.type discriminator (per OpenCode docs), not via a direct
+# "session.created" handler key. tool.execute.before and
+# experimental.session.compacting use direct named-key handlers.
 plugin="$REPO_ROOT/.opencode/plugins/sdlc-wizard.js"
-for evt in "session.created" "tool.execute.before" "experimental.session.compacting"; do
-    if grep -q "\"$evt\"" "$plugin"; then
-        pass "plugin subscribes to $evt"
+
+# Generic event handler must exist for session-lifecycle dispatch
+if grep -qE '^\s*event:\s*async' "$plugin"; then
+    pass "plugin has generic event handler (for session.created dispatch)"
+else
+    fail "plugin missing generic event handler"
+fi
+
+# Generic handler must filter on event.type for "session.created" — accept
+# either positive (`=== "session.created"`) or negated early-return (`!== "session.created"`)
+# form; both correctly discriminate on the event.
+if grep -qE 'event\.type[[:space:]]*(===|!==)[[:space:]]*"session\.created"' "$plugin"; then
+    pass "generic event handler discriminates on event.type for session.created"
+else
+    fail "generic event handler missing session.created discriminator"
+fi
+
+# Direct named-key handlers for tool.execute.before + experimental.session.compacting
+for evt in "tool.execute.before" "experimental.session.compacting"; do
+    if grep -qE "\"$evt\":" "$plugin"; then
+        pass "plugin has named handler for $evt"
     else
-        fail "plugin missing subscription to $evt"
+        fail "plugin missing named handler for $evt"
     fi
 done
 
@@ -115,6 +161,16 @@ for badevt in "UserPromptSubmit" "PreToolUse" "PreCompact" "SessionStart"; do
         pass "plugin does not leak Claude event $badevt as handler key"
     fi
 done
+
+# Anti-regression for Codex round-1 P0 #1: `"session.created"` as a DIRECT
+# handler key does not fire under OpenCode. The fix uses the generic `event`
+# handler with event.type discriminator instead. Guard against the bug coming
+# back via a direct handler key.
+if grep -qE '"session\.created"[[:space:]]*:[[:space:]]*async' "$plugin"; then
+    fail "plugin uses session.created as direct handler key (P0 — OpenCode dispatches via generic event channel)"
+else
+    pass "plugin does not use session.created as direct handler key (anti-regression)"
+fi
 
 echo ""
 echo "=== Results: $PASSED passed, $FAILED failed ==="

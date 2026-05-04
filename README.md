@@ -1,9 +1,10 @@
 # OpenCode SDLC Wizard
 
-> **Status: bootstrap stage.** This repo was just spawned (2026-05-03).
-> Implementation is pending. **Read [`HANDOFF.md`](HANDOFF.md) for the full
-> port plan, research checklist, and order of operations** for the next
-> Claude Code session that picks this up.
+> **Status: v0.1.0 (Phase A complete) — 2026-05-03.** Hooks, skills,
+> AGENTS.md, and `install.sh` ship. Phase B (backend matrix proof) and
+> Phase C (hardware scout) deferred to follow-up releases. See
+> [`HANDOFF.md`](HANDOFF.md) for architecture decisions and
+> [`CHANGELOG.md`](CHANGELOG.md) for release notes.
 
 SDLC enforcement for [`sst/opencode`](https://github.com/sst/opencode) — the
 privacy-first, any-backend agent CLI. This wizard ports the same plan → TDD
@@ -55,11 +56,49 @@ load-bearing. The 30B+ code-tuned class (Qwen-Coder, DeepSeek-Coder) is
 the likely local sweet spot. **A failed run on an undersized model is a
 capability result, not a port bug.**
 
+## Install
+
+From a target repo's root:
+
+```bash
+git clone https://github.com/BaseInfinity/opencode-sdlc-wizard /tmp/opencode-sdlc-wizard
+bash /tmp/opencode-sdlc-wizard/install.sh
+```
+
+This non-destructively merges the wizard into your `.opencode/`:
+
+- `.opencode/plugins/sdlc-wizard.js` (the OpenCode plugin shim)
+- `.opencode/hooks/*.sh` (5 portable bash hooks)
+- `.opencode/skills/{sdlc,setup-wizard,update-wizard,feedback}/SKILL.md`
+- `AGENTS.md` at repo root (OpenCode's primary instruction file)
+
+Existing customizations are preserved. Re-run with `--force` to overwrite.
+
+A native `npx opencode-sdlc-wizard init` CLI is on the roadmap; for now
+the bash installer is the supported path.
+
+## Tests
+
+```bash
+bash tests/test-bundle-integrity.sh   # 50+ tests, bundle correctness
+bash tests/test-plugin-shim.sh        # plugin ESM + bash hook validity
+bash tests/test-install.sh            # installer non-destructive behavior
+```
+
+Or `npm test` runs all three.
+
+## Known limitations
+
+- **No `UserPromptSubmit` analog in OpenCode.** SDLC BASELINE moves to
+  AGENTS.md (loaded once per session) instead of repeating per prompt.
+- **Phase A only.** Backend matrix proof (Phase B) and hardware scout
+  (Phase C) deferred. The wizard installs and runs against any OpenCode
+  backend; we just haven't yet measured SDLC-compliance scores across
+  backends statistically.
+- **No upstream-sync workflow yet.** Updates from the parent
+  `claude-sdlc-wizard` are manual. Future releases will mirror the
+  Codex sibling's `.github/workflows/upstream-sync.yml` pattern.
+
 ## License
 
 [MIT](LICENSE)
-
-## Status
-
-Empty repo + bootstrap docs. See [`HANDOFF.md`](HANDOFF.md) for what to do
-next. Don't `npm install` anything here yet — there's nothing to install.

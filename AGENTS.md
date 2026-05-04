@@ -22,8 +22,8 @@ Skills are auto-discovered from `.opencode/skills/` (and Claude-compatible
 | Skill | Invocation | Purpose |
 |-------|------------|---------|
 | `sdlc` | `skill({ name: "sdlc" })` | Full SDLC workflow guidance |
-| `setup` | `skill({ name: "setup" })` | Confidence-driven project setup |
-| `update` | `skill({ name: "update" })` | Smart update with drift detection |
+| `setup-wizard` | `skill({ name: "setup-wizard" })` | Confidence-driven project setup |
+| `update-wizard` | `skill({ name: "update-wizard" })` | Smart update with drift detection |
 | `feedback` | `skill({ name: "feedback" })` | Privacy-first community feedback |
 
 Read each skill's `SKILL.md` for full guidance.
