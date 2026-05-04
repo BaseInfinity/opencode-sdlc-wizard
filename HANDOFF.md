@@ -291,11 +291,170 @@ v0.1.0 ships. Backend matrix completeness is Phase B's problem.
 - Wrote this `HANDOFF.md` (the thing you're reading)
 - Wrote minimal `README.md`, `CLAUDE.md`, `LICENSE`, `.gitignore`,
   `package.json` scaffold
-- **Did not** create `hooks/`, `skills/`, `cli/`, `install.sh` — those
-  belong to the implementation session
-- **Did not** verify OpenCode's hook system — research checklist above
-  is the explicit "first thing to do"
-- Did not yet add OpenCode to the parent repo's README ecosystem table
-  — defer until v0.1.0 ships, then update all 3 siblings + parent
 
-End of handoff. Good luck — the Codex port is your friend.
+## Phase A implementation log (same session, extended 2026-05-03)
+
+After bootstrap, the user authorized continuing into implementation
+("take ur time"). Phase A was implemented end-to-end in the same
+session. Cross-model review (Codex xhigh) caught 6 real findings; all
+fixed. Final state pushed to main on `BaseInfinity/opencode-sdlc-wizard`.
+**Status: Phase A code-complete, Codex round 1 fixes applied, pending
+Codex round 2 recheck + tag/publish in a follow-up session.**
+
+### What's on main right now (commit `3d4585f` and earlier)
+
+```
+opencode-sdlc-wizard/
+├── AGENTS.md                              # primary instruction file
+├── CHANGELOG.md                           # v0.1.0 release notes
+├── CLAUDE.md                              # project notes for any CC session
+├── HANDOFF.md                             # this file
+├── LICENSE                                # MIT
+├── README.md                              # public pitch + install + tests + limits
+├── install.sh                             # non-destructive bash installer
+├── package.json                           # v0.1.0
+├── .opencode/
+│   ├── plugins/sdlc-wizard.js             # JS plugin shim (the OpenCode adapter)
+│   └── hooks/                             # 5 portable bash hooks + helper
+│       ├── _find-sdlc-root.sh
+│       ├── sdlc-prompt-check.sh
+│       ├── tdd-pretool-check.sh
+│       ├── instructions-loaded-check.sh
+│       ├── model-effort-check.sh
+│       └── precompact-seam-check.sh
+├── hooks/                                 # mirror of .opencode/hooks/ (dev mode)
+├── skills/                                # 4 OpenCode-native skills
+│   ├── sdlc/SKILL.md                      # full workflow (verbatim from parent)
+│   ├── setup-wizard/SKILL.md              # OpenCode-tailored, no Claude refs
+│   ├── update-wizard/SKILL.md             # OpenCode-tailored, no Claude refs
+│   └── feedback/SKILL.md                  # OpenCode-tailored, no Claude refs
+├── tests/                                 # 80 tests, all green
+│   ├── test-bundle-integrity.sh           # 57 tests
+│   ├── test-plugin-shim.sh                # 11 tests
+│   └── test-install.sh                    # 12 tests
+└── .reviews/                              # cross-model review artifacts
+    ├── handoff.json                       # Codex review handoff (round 1)
+    ├── latest-review.md                   # Codex round-1 findings (4/10)
+    ├── preflight-v0.1.0.md                # what we self-checked first
+    └── response.json                      # round-2 responses (FIXED list)
+```
+
+### Codex round-1 findings (all FIXED)
+
+The bootstrap session ran `codex exec` with xhigh effort against a live
+OpenCode docs fetch + cross-references with parent + Codex sibling +
+~/xdlc. Codex returned **4/10 NOT CERTIFIED** with these findings:
+
+| ID | Severity | Finding | Status |
+|----|----------|---------|--------|
+| 1 | **P0** | `session.created` registered as direct handler key but OpenCode dispatches via generic `event` channel — would silently never fire | FIXED — generic `event` handler with `event.type` discriminator |
+| 2 | **P0** | `tool.execute.before` destructured `{ tool, args }` but OpenCode passes `(input, output)` with lowercase tool ids — TDD nudge would never fire | FIXED — correct signature, lowercase ids, `output.args` extraction, apply_patch path-extraction fallback |
+| 3 | P1 | Skill dir name (`setup`) didn't match frontmatter (`setup-wizard`) — OpenCode discovery rule violation | FIXED — dirs renamed to match frontmatter; AGENTS.md + install.sh updated; regression test added |
+| 4 | P1 | Helper skills still Claude-only (CLAUDE_CODE_SDLC_WIZARD.md refs, .claude/settings.json paths, agentic-sdlc-wizard CLI invocations) | FIXED — setup-wizard / update-wizard / feedback rewritten OpenCode-native; stale-reference test added; sdlc skill kept verbatim (workflow not infra) |
+| 5 | P2 | install.sh rewrote `.wizard-stamp` every run (not idempotent on the stamp file) | FIXED — gated stamp write on INSTALLED+UPDATED > 0; idempotency test added |
+| 6 | P2 | README still labeled "bootstrap stage" after Phase A code shipped | FIXED — replaced banner; added Install / Tests / Known limitations sections |
+
+Round-2 Codex recheck has NOT yet been run — that's the first thing the
+follow-up session should do (see "Pickup steps" below).
+
+### What the follow-up session needs to do
+
+These are the concrete next steps in execution order. **Don't skip
+the Codex round-2 recheck — it's the standing standard before any
+sibling tags v0.1.0.**
+
+1. **Run Codex round-2 recheck.** From the repo root:
+   ```bash
+   codex exec \
+     -c 'model_reasoning_effort="xhigh"' \
+     -s danger-full-access \
+     -o .reviews/latest-review.md \
+     "TARGETED RECHECK — not a full re-review. Read .reviews/handoff.json
+      and .reviews/response.json. For each round-1 finding: FIXED → verify
+      against original certify condition. DISPUTED → evaluate justification.
+      Do NOT raise new findings unless P0. Re-verify all prior passes still
+      hold. End with: score (1-10), CERTIFIED or NOT CERTIFIED."
+   ```
+   The response.json already enumerates which file:line pairs each
+   finding was fixed in.
+
+2. **If CERTIFIED (score ≥8):** tag v0.1.0 and publish:
+   - Bump `package.json` version if needed (currently 0.1.0)
+   - `git tag v0.1.0 && git push origin v0.1.0`
+   - Set up npm publish flow (the parent wizard has a release.yml
+     workflow — copy it to .github/workflows/ here)
+   - Open the npm publish ticket — first-time publish to npm requires
+     the user's npm OTP
+
+3. **If NOT CERTIFIED:** another fix round. Update response.json with
+   the new actions. Cap at 3 rounds total (per parent wizard policy).
+
+4. **After v0.1.0 ships:** mirror updates back to siblings:
+   - File issue in `BaseInfinity/claude-sdlc-wizard` to add OpenCode as
+     row 4 in the README ecosystem table (currently 3 siblings;
+     opencode-sdlc-wizard becomes 4th)
+   - File issue in `BaseInfinity/codex-sdlc-wizard` for the same
+     ecosystem table update
+   - File issue in `BaseInfinity/claude-gdlc-wizard` for the same
+   - Update parent's ROADMAP #9 to mark Phase A DONE; note v0.1.0
+     URL + tag
+
+### What was deliberately deferred (Phase B/C)
+
+- **Backend matrix proof.** Run a paired E2E SDLC scenario (plan →
+  TDD → self-review) against:
+  - **Local tier:** Ollama + Qwen-Coder or DeepSeek-Coder (16-24GB
+    VRAM class)
+  - **Enterprise tier:** Azure OpenAI tenant
+  - **Hosted OSS tier:** Together or Groq
+  - **Anthropic baseline:** Opus 4.7 max
+  Score each against parent's `tests/e2e/run-tier2-evaluation.sh`
+  rubric (10-point criteria, 5 trials, 95% CI). Document which
+  backends hold SDLC compliance and which degrade. Capability-floor
+  note still applies: small models (7-13B) will fail and that's a
+  result not a bug.
+
+- **Hardware scout for local tier.** Test gaming laptop +
+  Windows laptop first (zero spend). If insufficient, evaluate
+  $200/$300/$400 rig OR cloud-GPU rental. Don't spend without
+  maintainer authorization.
+
+- **Upstream-sync workflow.** The Codex sibling has
+  `.github/workflows/upstream-sync.yml` that monitors the parent
+  wizard's releases and proposes parity updates. We don't have one yet.
+  Add when the port stabilizes (post v0.1.0).
+
+- **Native Node CLI.** `npx opencode-sdlc-wizard init` requires a
+  `cli/bin/` entry. The parent wizard has 8 CLI files distributed via
+  npm `bin`. Phase A ships bash-only install for simplicity; native
+  CLI is a follow-up.
+
+- **opencode.json plugin auto-load verification.** OpenCode plugins at
+  `.opencode/plugins/` are documented as auto-loaded, but we have NOT
+  end-to-end tested this against a live OpenCode install. The plugin
+  passes static checks (parses, exports correct shape, uses right
+  event names + signatures), but next session should run the wizard
+  against a real OpenCode process and confirm hooks actually fire.
+
+### Open questions for the maintainer (not for the next session to guess)
+
+1. **Backend prioritization for Phase B.** Which matters most: local
+   privacy (Ollama), enterprise compliance (Azure), or hosted OSS cost
+   (Together/Groq)? The matrix has 4 cells but order them by user
+   demand.
+
+2. **Hardware budget.** Existing laptops first. Authorize spend only
+   if those don't meet the 16-24GB VRAM bar for Qwen-Coder /
+   DeepSeek-Coder.
+
+3. **Upstream-sync cadence.** Daily/weekly/manual? The parent's
+   weekly cron has been migrated to manual on-Max in #231; we may
+   want to follow that pattern from day 1 here.
+
+4. **npm publish account.** The wizard's npm scope is
+   `BaseInfinity` — is `opencode-sdlc-wizard` going to publish under
+   the same scope? If yes, no new account needed. The publish flow
+   mirrors `release.yml` from the parent.
+
+End of Phase A handoff. The actual implementation is on main; this
+section is just the bridge to whoever takes Phase B.
