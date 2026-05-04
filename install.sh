@@ -57,6 +57,7 @@ echo ""
 # Required source files in this repo (the bundle)
 REQUIRED_SOURCES=(
   "AGENTS.md"
+  "PRIVACY.md"
   ".opencode/plugins/sdlc-wizard.js"
   ".opencode/hooks/_find-sdlc-root.sh"
   ".opencode/hooks/sdlc-prompt-check.sh"
@@ -64,6 +65,8 @@ REQUIRED_SOURCES=(
   ".opencode/hooks/instructions-loaded-check.sh"
   ".opencode/hooks/model-effort-check.sh"
   ".opencode/hooks/precompact-seam-check.sh"
+  "scripts/detect-backends.sh"
+  "scripts/configure-backend.sh"
   "skills/sdlc/SKILL.md"
   "skills/setup-wizard/SKILL.md"
   "skills/update-wizard/SKILL.md"
@@ -83,8 +86,11 @@ done
 declare_target() {
   case "$1" in
     "AGENTS.md") echo "AGENTS.md" ;;
+    "PRIVACY.md") echo "PRIVACY.md" ;;
     ".opencode/plugins/sdlc-wizard.js") echo ".opencode/plugins/sdlc-wizard.js" ;;
     ".opencode/hooks/"*) echo "$1" ;;
+    "scripts/detect-backends.sh") echo ".opencode/scripts/detect-backends.sh" ;;
+    "scripts/configure-backend.sh") echo ".opencode/scripts/configure-backend.sh" ;;
     "skills/sdlc/SKILL.md") echo ".opencode/skills/sdlc/SKILL.md" ;;
     "skills/setup-wizard/SKILL.md") echo ".opencode/skills/setup-wizard/SKILL.md" ;;
     "skills/update-wizard/SKILL.md") echo ".opencode/skills/update-wizard/SKILL.md" ;;
@@ -141,9 +147,12 @@ for src_rel in "${REQUIRED_SOURCES[@]}"; do
   esac
 done
 
-# Make hook scripts executable
-for h in "$TARGET_DIR/.opencode/hooks/"*.sh; do
-  [ -f "$h" ] && chmod +x "$h"
+# Make hook + script files executable
+for d in "$TARGET_DIR/.opencode/hooks" "$TARGET_DIR/.opencode/scripts"; do
+  [ -d "$d" ] || continue
+  for f in "$d"/*.sh; do
+    [ -f "$f" ] && chmod +x "$f"
+  done
 done
 
 # Drop a metadata stamp so update/check can detect drift later. Only
@@ -170,11 +179,18 @@ Next steps:
   1. Open OpenCode in this directory. AGENTS.md will be auto-loaded.
   2. The plugin (.opencode/plugins/sdlc-wizard.js) auto-loads at session start
      and shells out to .opencode/hooks/ for SDLC enforcement.
-  3. Run skill({ name: "sdlc" }) inside OpenCode to invoke the SDLC workflow.
+  3. (Optional) Pick a backend — privacy-first picker:
+       bash .opencode/scripts/detect-backends.sh         # see what's available
+       bash .opencode/scripts/configure-backend.sh \\
+            --tier private_local --provider ollama \\
+            --model qwen2.5-coder:32b
+     Tiers: private_local (Ollama / LM Studio / llama.cpp / vLLM),
+            enterprise (Azure / Bedrock), hosted_oss (Together / Groq /
+            OpenRouter), proprietary (Anthropic / OpenAI). See PRIVACY.md.
+  4. Run skill({ name: "sdlc" }) inside OpenCode to invoke the SDLC workflow.
 
-If you have an existing opencode.json, the wizard does not modify it. To pin
-a model or add the wizard plugin to your config, see:
-  https://github.com/BaseInfinity/opencode-sdlc-wizard#configuration
+The installer does not write opencode.json on its own — backend selection is
+opt-in via the configure-backend.sh script (or the setup-wizard skill).
 
 EOF
 fi

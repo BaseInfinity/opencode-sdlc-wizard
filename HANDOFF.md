@@ -458,3 +458,70 @@ sibling tags v0.1.0.**
 
 End of Phase A handoff. The actual implementation is on main; this
 section is just the bridge to whoever takes Phase B.
+
+## v0.2.0 addendum (2026-05-04) — backend picker
+
+Phase A v0.1.0 deliberately deferred backend selection (`opencode.json` was
+left alone by the installer). v0.2.0 closes that gap because the multi-
+backend pitch in the README without an actual picker would be a documentation
+lie. The differentiator that justifies this sibling vs `agentic-sdlc-wizard`
+and `codex-sdlc-wizard` is **privacy-first portability**, and a footnote in
+the README is not portability.
+
+**What ships in v0.2.0:**
+
+- `scripts/detect-backends.sh` — env probe + PATH probe → JSON with four
+  tiers + a `recommendation` string. Privacy-first cascade. No network.
+- `scripts/configure-backend.sh` — `--tier --provider --model` flags;
+  writes/merges `opencode.json` non-destructively, refuses to clobber
+  existing pins without `--force`, supports `--print-only` dry runs,
+  idempotent.
+- `PRIVACY.md` — four-tier model, Ollama walkthrough, verification.
+- 15 new tests in `tests/test-backend-picker.sh`.
+
+**Tier coverage decisions:**
+
+- Local providers (Ollama / LM Studio / llama.cpp / vLLM) use OpenCode's
+  `@ai-sdk/openai-compatible` provider with each runtime's documented
+  localhost port. Confirmed against opencode.ai/docs/providers as of
+  2026-05-04.
+- API keys go through `{env:VAR}` substitution per OpenCode's documented
+  config format. No secrets in `opencode.json`.
+- Aliases accepted: `enterprise/azure` → `azure_openai`, `enterprise/bedrock`
+  → `aws_bedrock`. The detector emits the canonical names; the configurator
+  accepts both.
+
+**Live E2E validation done (2026-05-04, opencode-ai@1.14.33).**
+The "deferred unverified critical path" from v0.1.0 was run end-to-end
+against a real OpenCode process. Findings + fixes:
+
+- ✅ Plugin auto-loads from `.opencode/plugins/` (verified via
+  `opencode debug config`).
+- ✅ All 4 skills discovered (verified via `opencode debug skill`).
+- ⚠️ **Session-start race fixed.** `session.created` publishes before
+  async plugin factories resolve; v0.1.0 strict discriminator never
+  fired. v0.2.0 uses first-`session.*` + dedupe to subscribe in the
+  window we actually have.
+- ⚠️ **Async shell paths hang.** Both `node:child_process.execFile` and
+  Bun's `$` API never resolved when running bash hooks under OpenCode
+  1.14.33. v0.2.0 uses `Bun.spawnSync` (synchronous) which completes
+  deterministically.
+- ✅ SDLC Wizard banner reaches OpenCode stderr live after the two fixes.
+
+**Still deferred (Phase B / Phase C as before):**
+
+- Backend matrix proof — score plan→TDD→self-review compliance across
+  backends. Capability-floor note still applies.
+- Hardware scout — gaming/Windows laptop first, $200–400 rig only with
+  authorization.
+- Native `npx` CLI — Phase A bash installer + the new scripts cover the
+  workflow; native CLI is a follow-up.
+- `tool.execute.before` and `experimental.session.compacting` E2E paths
+  not yet exercised live (would require triggering tool calls / a
+  compact under OpenCode). Static checks pass; runtime verification is
+  a follow-up.
+
+**Codex round-2 recheck:** v0.2.0 expands scope, so the round-2 review
+should re-verify the 6 round-1 fixes AND audit the picker. Run from repo
+root with `xhigh` effort, output to `.reviews/latest-review.md`. Then tag
+v0.2.0 (not v0.1.0 — the picker is a meaningful new feature).

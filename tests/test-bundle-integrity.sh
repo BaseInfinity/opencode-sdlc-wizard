@@ -114,6 +114,44 @@ else
     fail "install.sh missing or not executable"
 fi
 
+# Backend picker scripts present + executable + valid bash
+for s in detect-backends.sh configure-backend.sh; do
+    if [ -x "$REPO_ROOT/scripts/$s" ]; then
+        pass "scripts/$s present and executable"
+    else
+        fail "scripts/$s missing or not executable"
+    fi
+    if bash -n "$REPO_ROOT/scripts/$s" 2>/dev/null; then
+        pass "scripts/$s passes bash -n syntax check"
+    else
+        fail "scripts/$s has bash syntax errors"
+    fi
+done
+
+# install.sh references the picker scripts in REQUIRED_SOURCES (so they ship)
+for s in detect-backends.sh configure-backend.sh; do
+    if grep -q "scripts/$s" "$REPO_ROOT/install.sh"; then
+        pass "install.sh REQUIRED_SOURCES includes scripts/$s"
+    else
+        fail "install.sh does not list scripts/$s — bundle won't ship it"
+    fi
+done
+
+# PRIVACY.md present at repo root (tier model)
+if [ -f "$REPO_ROOT/PRIVACY.md" ]; then
+    pass "PRIVACY.md exists at repo root"
+else
+    fail "PRIVACY.md missing — privacy-tier doc is part of the picker bundle"
+fi
+# PRIVACY.md mentions all four tier names (regression guard against tier drift)
+for tier in private_local enterprise hosted_oss proprietary; do
+    if grep -q "$tier" "$REPO_ROOT/PRIVACY.md"; then
+        pass "PRIVACY.md documents tier '$tier'"
+    else
+        fail "PRIVACY.md missing tier '$tier'"
+    fi
+done
+
 # Hooks are executable
 for hook in $REPO_ROOT/hooks/*.sh $REPO_ROOT/.opencode/hooks/*.sh; do
     [ -x "$hook" ] && pass "$(basename "$hook") executable [$(dirname "$hook" | xargs basename)/]" || fail "$(basename "$hook") not executable [$(dirname "$hook" | xargs basename)/]"
@@ -133,13 +171,17 @@ else
     fail "plugin missing generic event handler"
 fi
 
-# Generic handler must filter on event.type for "session.created" — accept
-# either positive (`=== "session.created"`) or negated early-return (`!== "session.created"`)
-# form; both correctly discriminate on the event.
-if grep -qE 'event\.type[[:space:]]*(===|!==)[[:space:]]*"session\.created"' "$plugin"; then
-    pass "generic event handler discriminates on event.type for session.created"
+# Generic handler must filter on session.* events. Either a strict
+# `event.type === "session.created"` discriminator OR the race-resilient
+# `event.type.startsWith("session.")` pattern with a dedupe flag is acceptable
+# (both intercept session-lifecycle events; the latter survives OpenCode's
+# session.created/plugin-init race observed live in 1.14.33).
+if grep -qE 'event\.type[[:space:]]*(===|!==)[[:space:]]*"session\.created"' "$plugin" \
+   || ( grep -qE 'event\.type\.startsWith\("session\."\)' "$plugin" \
+        && grep -qE 'sessionStartFired' "$plugin" ); then
+    pass "generic event handler intercepts session.* events (strict or race-resilient)"
 else
-    fail "generic event handler missing session.created discriminator"
+    fail "generic event handler missing session.* discriminator (need either === \"session.created\" or .startsWith(\"session.\") + dedupe)"
 fi
 
 # Direct named-key handlers for tool.execute.before + experimental.session.compacting

@@ -27,10 +27,13 @@ if echo "$out" | grep -q "INSTALLER_FAILED"; then
     fail "fresh install crashed"
 else
     if [ -f "$target/AGENTS.md" ] && \
+       [ -f "$target/PRIVACY.md" ] && \
        [ -f "$target/.opencode/plugins/sdlc-wizard.js" ] && \
        [ -f "$target/.opencode/hooks/tdd-pretool-check.sh" ] && \
+       [ -f "$target/.opencode/scripts/detect-backends.sh" ] && \
+       [ -f "$target/.opencode/scripts/configure-backend.sh" ] && \
        [ -f "$target/.opencode/skills/sdlc/SKILL.md" ]; then
-        pass "fresh install: AGENTS.md + plugin + hook + skill all present in target"
+        pass "fresh install: AGENTS.md + PRIVACY.md + plugin + hook + scripts + skill all present in target"
     else
         fail "fresh install: missing one or more required files in target"
     fi
@@ -38,6 +41,12 @@ else
         pass "fresh install: hook scripts are executable"
     else
         fail "fresh install: hook scripts not executable"
+    fi
+    if [ -x "$target/.opencode/scripts/detect-backends.sh" ] && \
+       [ -x "$target/.opencode/scripts/configure-backend.sh" ]; then
+        pass "fresh install: backend picker scripts are executable"
+    else
+        fail "fresh install: backend picker scripts not executable"
     fi
     if [ -f "$target/.opencode/.wizard-stamp" ]; then
         pass "fresh install: wizard stamp written"
@@ -53,7 +62,8 @@ bash "$INSTALLER" --target-dir "$target" >/dev/null
 out="$(bash "$INSTALLER" --target-dir "$target" 2>&1)"
 match_count=$(echo "$out" | grep -cE "  MATCH " || true)
 installed_count=$(echo "$out" | grep -cE "  INSTALLED " || true)
-if [ "$match_count" -ge 12 ] && [ "$installed_count" -eq 0 ]; then
+# v0.2.0 bundle: 16 sources (1 AGENTS.md + 1 PRIVACY.md + 6 hooks + 1 plugin + 2 scripts + 4 skills + 1 hook helper)
+if [ "$match_count" -ge 15 ] && [ "$installed_count" -eq 0 ]; then
     pass "re-install is idempotent (all files MATCH on second run)"
 else
     fail "re-install not idempotent: $installed_count installed, $match_count matched"
@@ -109,14 +119,16 @@ else
 fi
 rm -rf "$target"
 
-# 6. Existing opencode.json untouched (we don't try to merge it in v0.1.0)
+# 6. Existing opencode.json untouched by install.sh (backend picker is a
+#    separate explicit step run from the setup-wizard skill, not auto-run
+#    on install — this contract is preserved through v0.2.0)
 target="$(mk_target)"
 echo '{"model": "anthropic/claude-opus-4-7"}' > "$target/opencode.json"
 bash "$INSTALLER" --target-dir "$target" >/dev/null
 if [ "$(cat "$target/opencode.json")" = '{"model": "anthropic/claude-opus-4-7"}' ]; then
-    pass "existing opencode.json untouched"
+    pass "existing opencode.json untouched by install.sh"
 else
-    fail "existing opencode.json was modified (should be untouched in v0.1.0)"
+    fail "existing opencode.json was modified by install.sh (configure-backend.sh is a separate opt-in)"
 fi
 rm -rf "$target"
 

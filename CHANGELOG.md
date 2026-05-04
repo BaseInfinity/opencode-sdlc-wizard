@@ -2,6 +2,100 @@
 
 All notable changes to opencode-sdlc-wizard.
 
+## [0.2.0] - 2026-05-04
+
+### Fixed — live OpenCode E2E reliability (validation against 1.14.33)
+
+Static checks (parse, regex, signature) passed in v0.1.0 but **the wizard's
+session-start nudges silently swallowed under a real OpenCode process**.
+Caught by E2E validation against `opencode-ai@1.14.33` 2026-05-04 and fixed
+in v0.2.0. Each fix has a regression test in `tests/test-plugin-shim.sh`.
+
+- **Session-start race.** OpenCode publishes `session.created` ~1–2 ms after
+  plugin loading begins, **before** async plugin factories resolve and
+  subscribe to the event bus. The strict `event.type === "session.created"`
+  discriminator from v0.1.0's round-1 fix never fired in live runs.
+  v0.2.0 uses the FIRST `session.*` event the handler observes (with a
+  closure dedupe), which arrives in the window the plugin actually has
+  access to. Survives both the race and a future OpenCode fix that closes it.
+- **Async hook execution hung.** Both `node:child_process.execFile` and
+  Bun's `$` shell API hang inside OpenCode's bundled Bun runtime — the
+  callback / promise never resolves, swallowing all hook output. v0.2.0
+  switches `runHook` to `Bun.spawnSync` (synchronous; can't hang the event
+  loop). Single bash hook ≈ 50–500 ms — acceptable cost for deterministic
+  completion.
+
+After both fixes, the SDLC Wizard banner reaches OpenCode stderr live (the
+`=== SDLC Wizard ===` block renders the same way it does in Claude / Codex).
+
+### Added — privacy-first backend picker
+
+The differentiator that justifies this sibling's existence. Other wizards in
+the family (`agentic-sdlc-wizard`, `codex-sdlc-wizard`) are vendor-bound to
+Claude or Codex. OpenCode's edge is multi-backend portability — and v0.2.0
+makes that edge usable instead of a "you can pin a model in opencode.json"
+README footnote.
+
+**New artifacts:**
+
+- `scripts/detect-backends.sh` — probes PATH + env vars for available
+  backends across the four privacy tiers and outputs JSON with a
+  `recommendation` field (privacy-first cascade — prefers `private_local`
+  whenever a local LLM runtime is on PATH).
+- `scripts/configure-backend.sh` — writes/merges `opencode.json` for a
+  chosen `--tier --provider --model` combination. Idempotent (re-running
+  with same args produces byte-identical output), preserves unrelated keys,
+  refuses to clobber an existing `model` pin without `--force`. Supports
+  `--print-only` for skill-driven dry runs.
+- `PRIVACY.md` — tier model + Ollama walkthrough + private-path
+  verification checklist.
+
+**Updated:**
+
+- `install.sh` installs the two scripts at `.opencode/scripts/` and chmod
+  +x's them. Adds a privacy-tier hint to its post-install Next Steps.
+- `setup-wizard` skill now invokes the detector + configurator with concrete
+  privacy-first defaults instead of the prior placeholder backend question.
+- `AGENTS.md` + `README.md` lead with the privacy-tier picker and link
+  `PRIVACY.md`.
+
+### Tests
+
+- `tests/test-backend-picker.sh` — 21 tests covering detector JSON shape,
+  env-var detection, recommendation cascade, configurator output for
+  ollama/anthropic/azure tiers, custom-provider `models` entries (so
+  OpenCode can resolve the pin), canonical provider IDs (`amazon-bedrock`
+  / `togetherai`), deep-merge of existing provider blocks, idempotency
+  via byte-identical re-runs, no-clobber guard, `--force` override,
+  `--print-only` dry-run.
+- Bundle integrity: scripts presence + bash syntax + tier-name guards;
+  PRIVACY.md tier coverage. `tests/test-bundle-integrity.sh` 57 → 68.
+- Install behavior: scripts installed at `.opencode/scripts/` + executable.
+  `tests/test-install.sh` 12 → 13.
+
+**Total: 113 tests, all green** (68 + 11 + 13 + 21 across 4 suites).
+
+### Tiers supported
+
+| Tier | Detector aliases → canonical provider ID written to opencode.json |
+|------|--------------------------------------------------------------------|
+| `private_local` | ollama / lm_studio→`lmstudio` / llama_cpp→`llamacpp` / vllm |
+| `enterprise` | azure_openai→`azure` / aws_bedrock→`amazon-bedrock` |
+| `hosted_oss` | together→`togetherai` / groq / openrouter |
+| `proprietary` | anthropic / openai |
+
+Local providers use OpenCode's `@ai-sdk/openai-compatible` provider with
+each runtime's default localhost port and a `models` entry so OpenCode can
+resolve the pin (custom providers without `models` raise
+`ProviderModelNotFoundError`). API keys are referenced via `{env:VAR}`
+substitution — no secrets land in `opencode.json`.
+
+Detector emits user-friendly aliases (`aws_bedrock`, `together`,
+`lm_studio`); the configurator accepts the alias and writes the canonical
+OpenCode/models.dev provider ID. Built-in providers (`anthropic`, `openai`,
+`azure`, `amazon-bedrock`) skip the `models` block — their model registry
+comes from models.dev.
+
 ## [0.1.0] - 2026-05-03
 
 ### Added — Phase A port complete

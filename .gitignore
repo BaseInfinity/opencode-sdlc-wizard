@@ -26,3 +26,9 @@ coverage/
 .metrics/
 .reviews/latest-review.md
 .reviews/response.json
+
+# Dogfood artifacts — agentic-sdlc-wizard parent installs locally for SDLC
+# enforcement while developing this OpenCode sibling. These are CC-specific
+# dev tooling, not part of what this wizard ships, so don't track them.
+.claude/
+CLAUDE_CODE_SDLC_WIZARD.md

@@ -93,11 +93,14 @@ else
     fail "plugin missing exported async function"
 fi
 
-# 5. Plugin uses node:child_process (not bun-only API) so it works on plain Node too
-if grep -q 'from "node:child_process"' "$PLUGIN"; then
-    pass "plugin uses node:child_process (Bun + Node compatible)"
+# 5. Plugin executes hooks via Bun.spawnSync (the only path that doesn't hang
+# inside OpenCode's bundled bun runtime — verified live 2026-05-04). Both
+# node:child_process.execFile (async) and the $ shell API hang on hook
+# resolution. spawnSync blocks the event loop briefly but completes.
+if grep -qE 'Bun\.spawnSync' "$PLUGIN"; then
+    pass "plugin uses Bun.spawnSync for hook execution (async paths hang in OpenCode 1.14.x)"
 else
-    fail "plugin uses non-portable child_process import"
+    fail "plugin missing Bun.spawnSync — async shell paths hang in OpenCode and silently swallow SDLC nudges"
 fi
 
 # 6. precompact handler must throw on exit code 2 (block contract)
@@ -108,14 +111,19 @@ else
     fail "precompact handler missing exit-2 block contract"
 fi
 
-# 7. session.created dispatched via generic `event` handler (per OpenCode docs).
-# The earlier "session.created" as direct handler key was a P0 — OpenCode
-# session events flow through the generic `event` channel. Accept either
-# `===` or `!==` (early-return) discrimination form.
-if grep -qE '^\s*event:\s*async' "$PLUGIN" && grep -qE 'event\.type[[:space:]]*(===|!==)[[:space:]]*"session\.created"' "$PLUGIN"; then
-    pass "session.created handled via generic event handler with event.type discriminator"
+# 7. Session-start hooks dispatched via the generic `event` handler with a
+# `session.*` prefix discriminator + dedupe flag. OpenCode publishes
+# session.created BEFORE async plugin factories resolve and subscribe — the
+# plugin can't observe that specific event reliably (verified live
+# 2026-05-04 against OpenCode 1.14.33). The race-resilient pattern is to
+# fire session-start hooks on the FIRST `session.*` event the handler
+# observes, then dedupe via a closure-scoped flag.
+if grep -qE '^\s*event:\s*async' "$PLUGIN" \
+   && grep -qE 'event\.type\.startsWith\("session\."\)' "$PLUGIN" \
+   && grep -qE 'sessionStartFired' "$PLUGIN"; then
+    pass "session-start dispatched via generic event handler with session.* prefix + dedupe (race-resilient)"
 else
-    fail "session.created not dispatched via generic event handler (P0 — direct event-name keys don't fire)"
+    fail "session-start handler missing race-resilient pattern (event handler + session.* prefix + dedupe flag)"
 fi
 
 # 8. tool.execute.before handler signature is (input, output) per OpenCode docs.

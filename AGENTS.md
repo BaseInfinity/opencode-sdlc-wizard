@@ -55,19 +55,38 @@ nudge cadence, invoke `skill({ name: "sdlc" })` explicitly.
 
 ## Recommended Backend Configuration
 
-OpenCode supports many backends via `opencode.json`'s `model` field. The
-SDLC enforcement works on any backend that hits the **capability floor**
-(generally 30B+ code-tuned models — Qwen-Coder, DeepSeek-Coder, Sonnet,
-Opus, GPT-5.x). Smaller models (7-13B) typically fail the full
-plan→TDD→self-review protocol; that's a capability result, not a wizard
-bug.
+OpenCode supports many backends via `opencode.json`'s `model` field. This
+wizard ships a **privacy-first picker** that defaults to the strongest
+data-locality guarantee available on the machine.
 
-For privacy-sensitive work, route through:
-- **Local:** Ollama with Qwen-Coder or DeepSeek-Coder (16-24GB VRAM)
-- **Enterprise:** Azure OpenAI tenant with zero-retention policy
-- **Hosted OSS:** Together / Groq / OpenRouter
+Pick a backend in two steps:
 
-For maximum capability, use Anthropic / OpenAI flagship models directly.
+```bash
+# What's reachable on this machine?
+bash .opencode/scripts/detect-backends.sh
+
+# Configure the highest-privacy tier you can use
+bash .opencode/scripts/configure-backend.sh \
+     --tier private_local --provider ollama \
+     --model qwen2.5-coder:32b
+```
+
+Tiers (privacy-first ordering):
+
+| Tier | Where prompts travel | Examples |
+|------|----------------------|----------|
+| `private_local` | Stays on your machine | Ollama, LM Studio, llama.cpp, vLLM |
+| `enterprise` | Stays in your tenant | Azure OpenAI, AWS Bedrock |
+| `hosted_oss` | Open weights, third-party host | Together, Groq, OpenRouter |
+| `proprietary` | Vendor-bound | Anthropic, OpenAI |
+
+The SDLC enforcement works on any backend that hits the **capability floor**
+(30B+ code-tuned models — Qwen-Coder, DeepSeek-Coder, Sonnet, Opus, GPT-5.x).
+Smaller models (7–13B) typically fail the full plan→TDD→self-review
+protocol; that's a capability result, not a wizard bug.
+
+See [`PRIVACY.md`](PRIVACY.md) for full tier walkthroughs, the Ollama
+private-path setup, and how to verify no prompts are leaving the machine.
 
 ## Sibling Family
 

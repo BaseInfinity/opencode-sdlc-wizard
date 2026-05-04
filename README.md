@@ -1,9 +1,11 @@
 # OpenCode SDLC Wizard
 
-> **Status: v0.1.0 (Phase A complete) — 2026-05-03.** Hooks, skills,
-> AGENTS.md, and `install.sh` ship. Phase B (backend matrix proof) and
-> Phase C (hardware scout) deferred to follow-up releases. See
-> [`HANDOFF.md`](HANDOFF.md) for architecture decisions and
+> **Status: v0.2.0 (privacy-first backend picker) — 2026-05-04.** Phase A
+> port (hooks, skills, AGENTS.md, install.sh) plus a four-tier backend
+> picker that defaults to the strongest data-locality guarantee available.
+> Phase B (backend matrix proof) and Phase C (hardware scout) deferred to
+> follow-up releases. See [`HANDOFF.md`](HANDOFF.md) for architecture
+> decisions, [`PRIVACY.md`](PRIVACY.md) for the tier model, and
 > [`CHANGELOG.md`](CHANGELOG.md) for release notes.
 
 SDLC enforcement for [`sst/opencode`](https://github.com/sst/opencode) — the
@@ -69,23 +71,51 @@ This non-destructively merges the wizard into your `.opencode/`:
 
 - `.opencode/plugins/sdlc-wizard.js` (the OpenCode plugin shim)
 - `.opencode/hooks/*.sh` (5 portable bash hooks)
+- `.opencode/scripts/{detect,configure}-backend.sh` (privacy-first picker)
 - `.opencode/skills/{sdlc,setup-wizard,update-wizard,feedback}/SKILL.md`
-- `AGENTS.md` at repo root (OpenCode's primary instruction file)
+- `AGENTS.md` and `PRIVACY.md` at repo root
 
 Existing customizations are preserved. Re-run with `--force` to overwrite.
 
 A native `npx opencode-sdlc-wizard init` CLI is on the roadmap; for now
 the bash installer is the supported path.
 
+## Pick a backend (privacy-first)
+
+```bash
+# See what's reachable from this machine
+bash .opencode/scripts/detect-backends.sh
+
+# Configure the highest-privacy tier you can use
+bash .opencode/scripts/configure-backend.sh \
+     --tier private_local --provider ollama \
+     --model qwen2.5-coder:32b
+```
+
+Four tiers, ordered by where your prompts travel:
+
+| Tier | Travels to | Examples |
+|------|------------|----------|
+| `private_local` | Stays on your machine | Ollama, LM Studio, llama.cpp, vLLM |
+| `enterprise` | Your tenant | Azure OpenAI, AWS Bedrock |
+| `hosted_oss` | Third-party host | Together, Groq, OpenRouter |
+| `proprietary` | Vendor (Anthropic/OpenAI) | Claude, GPT |
+
+Detector probes PATH + env vars only — no network calls. Configurator merges
+non-destructively into `opencode.json` and refuses to clobber an existing
+`model` pin without `--force`. See [`PRIVACY.md`](PRIVACY.md) for the
+Ollama walkthrough and verification checklist.
+
 ## Tests
 
 ```bash
-bash tests/test-bundle-integrity.sh   # 50+ tests, bundle correctness
+bash tests/test-bundle-integrity.sh   # bundle correctness
 bash tests/test-plugin-shim.sh        # plugin ESM + bash hook validity
 bash tests/test-install.sh            # installer non-destructive behavior
+bash tests/test-backend-picker.sh     # detect/configure-backend behavior
 ```
 
-Or `npm test` runs all three.
+Or `npm test` runs all four.
 
 ## Known limitations
 

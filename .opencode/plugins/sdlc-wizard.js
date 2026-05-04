@@ -20,13 +20,33 @@
 //     throwing from the handler propagates as a block (verified by Codex
 //     review against OpenCode source 2026-05-03)
 //
+// Session-start race (verified live against OpenCode 1.14.33, 2026-05-04):
+//   OpenCode publishes `session.created` ~1–2ms after plugin loading begins,
+//   which is BEFORE the async plugin factory resolves and the returned
+//   handlers are subscribed to the bus. Plugins consistently miss the very
+//   first `session.created` and only start receiving subsequent session.*
+//   events. To ship reliable session-start nudges anyway, this plugin runs
+//   the session-start hooks on the FIRST `session.*` event it observes and
+//   then dedupes — that fires in the window we actually have access to,
+//   independent of OpenCode's race. (If OpenCode later fixes the race, this
+//   still works — the dedupe means we don't double-run.)
+//
 // Exit-code contract from the bash hooks:
 //   exit 0 → advisory success; stdout printed to stderr as informational
 //   exit 2 → block (only honored on tool.execute.before and
 //            experimental.session.compacting per Claude convention; we
 //            re-throw to propagate in OpenCode)
+//
+// Hook invocation transport (verified live against OpenCode 1.14.33,
+// 2026-05-04): `node:child_process.execFile` does not resolve in OpenCode's
+// bundled Bun runtime — its callback is never invoked, hanging the plugin's
+// async handler. The plugin context provides Bun's `$` shell API; we use
+// that to run hooks. `node:child_process` import stays for the type/parse
+// path but is unused at runtime; if a future OpenCode build runs plugins
+// under plain Node, the same `$` argument is conventionally provided by
+// Bun's compatibility shim. There is no plain-Node fallback because
+// OpenCode is Bun-only as of this version.
 
-import { execFile } from "node:child_process";
 import path from "node:path";
 import fs from "node:fs";
 
@@ -51,21 +71,38 @@ function resolveHookPath(directory, hookName) {
   return null;
 }
 
-function runHook(hookPath, env = {}) {
+function runHook(hookPath) {
+  // Synchronous shell-out. We use spawnSync rather than the async $ API or
+  // node:child_process.execFile because both async paths hang inside
+  // OpenCode's bundled Bun runtime in 1.14.33 — verified live 2026-05-04.
+  // SpawnSync blocks the event loop briefly (one bash hook ≈ 50–500ms) but
+  // completes deterministically, which is preferable to a hook that never
+  // resolves and silently swallows the SDLC nudge.
   if (!hookPath) {
-    return Promise.resolve({ stdout: "", stderr: "", code: 0, missing: true });
+    return { stdout: "", stderr: "", code: 0, missing: true };
   }
-  return new Promise((resolve) => {
-    execFile(
-      "bash",
-      [hookPath],
-      { env: { ...process.env, ...env }, timeout: 10000 },
-      (err, stdout, stderr) => {
-        const code = err && typeof err.code === "number" ? err.code : 0;
-        resolve({ stdout: stdout || "", stderr: stderr || "", code, missing: false });
-      },
-    );
-  });
+  try {
+    if (typeof Bun !== "undefined" && typeof Bun.spawnSync === "function") {
+      const r = Bun.spawnSync(["bash", hookPath]);
+      return {
+        stdout: (r.stdout && r.stdout.toString()) || "",
+        stderr: (r.stderr && r.stderr.toString()) || "",
+        code: typeof r.exitCode === "number" ? r.exitCode : 0,
+        missing: false,
+      };
+    }
+    // Plain-Node fallback (theoretical — OpenCode is Bun-only as of 1.14.33).
+    const cp = require("node:child_process");
+    const stdout = cp.execFileSync("bash", [hookPath], { timeout: 10000 });
+    return { stdout: stdout.toString(), stderr: "", code: 0, missing: false };
+  } catch (e) {
+    return {
+      stdout: "",
+      stderr: e && e.message ? e.message : String(e),
+      code: typeof e?.status === "number" ? e.status : 1,
+      missing: false,
+    };
+  }
 }
 
 // Extract a file path from arbitrary tool args. Different OpenCode tools name
@@ -95,25 +132,48 @@ function shouldNudgeTdd(toolName, filePath) {
 }
 
 export const SdlcWizardPlugin = async ({ directory }) => {
+  // Per-plugin-instance dedupe flag for session-start hooks. Survives across
+  // multiple event invocations within the same OpenCode process. Reset is
+  // unnecessary — a fresh OpenCode invocation gets a fresh module instance.
+  let sessionStartFired = false;
+
+  async function runSessionStartHooks() {
+    const messages = [];
+    for (const hookName of [
+      "instructions-loaded-check.sh",
+      "model-effort-check.sh",
+    ]) {
+      const hookPath = resolveHookPath(directory, hookName);
+      const r = runHook(hookPath);
+      if (r.stdout) messages.push(r.stdout.trim());
+    }
+    if (messages.length > 0) {
+      process.stderr.write(
+        "\n=== SDLC Wizard ===\n" + messages.join("\n\n") + "\n===================\n\n",
+      );
+    }
+  }
+
   return {
     // Generic event handler — branches on event.type for session-lifecycle
     // dispatch since OpenCode's session events flow through this channel,
     // not through named keys.
+    //
+    // Session-start hooks fire on the FIRST `session.*` event we observe in
+    // this OpenCode process, not strictly on `session.created`, because
+    // OpenCode publishes session.created before plugin factories resolve and
+    // subscribe (race condition). The dedupe flag means we run the hooks
+    // exactly once per process lifetime regardless of which session event
+    // arrives first (session.updated, session.idle, session.created, etc.).
     event: async ({ event }) => {
-      if (!event || event.type !== "session.created") return;
-      const messages = [];
-      for (const hookName of [
-        "instructions-loaded-check.sh",
-        "model-effort-check.sh",
-      ]) {
-        const hookPath = resolveHookPath(directory, hookName);
-        const r = await runHook(hookPath);
-        if (r.stdout) messages.push(r.stdout.trim());
-      }
-      if (messages.length > 0) {
-        process.stderr.write(
-          "\n=== SDLC Wizard ===\n" + messages.join("\n\n") + "\n===================\n\n",
-        );
+      if (!event) return;
+      if (
+        !sessionStartFired &&
+        typeof event.type === "string" &&
+        event.type.startsWith("session.")
+      ) {
+        sessionStartFired = true;
+        await runSessionStartHooks();
       }
     },
 
@@ -126,7 +186,7 @@ export const SdlcWizardPlugin = async ({ directory }) => {
       const filePath = extractFilePath(toolName, args);
       if (!shouldNudgeTdd(toolName, filePath)) return;
       const hookPath = resolveHookPath(directory, "tdd-pretool-check.sh");
-      const r = await runHook(hookPath);
+      const r = runHook(hookPath);
       if (r.stdout) process.stderr.write(r.stdout);
     },
 
@@ -135,7 +195,7 @@ export const SdlcWizardPlugin = async ({ directory }) => {
     // without catch, so throws bubble to the caller).
     "experimental.session.compacting": async () => {
       const hookPath = resolveHookPath(directory, "precompact-seam-check.sh");
-      const r = await runHook(hookPath);
+      const r = runHook(hookPath);
       if (r.stdout) process.stderr.write(r.stdout);
       if (r.code === 2) {
         const err = new Error(
