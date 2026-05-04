@@ -110,35 +110,68 @@ This is the bounded scope you should aim for in the next session(s):
 6. **`README.md`** matching the sibling-family format (will eventually need
    the XDLC Ecosystem section, like `agentic-sdlc-wizard` v1.64.0).
 
-## Research checklist — verify these BEFORE porting
+## Research checklist — VERIFIED 2026-05-03
 
-The bootstrap session (me) hasn't verified OpenCode's exact hook system. The
-next session must confirm before writing port code:
+Implementation session verified all items below; updates marked `[x]` with
+the discovered facts.
 
-- [ ] **What is OpenCode's hook event surface?** Read
-      [sst/opencode docs](https://github.com/sst/opencode). Does it have
-      analogues to Claude Code's `UserPromptSubmit`, `PreToolUse`,
-      `PostToolUse`, `SessionStart`, `PreCompact`, `InstructionsLoaded`?
-      What's the JSON schema for hook input/output? Where do hook scripts
-      live (`.opencode/hooks/`?)?
-- [ ] **What's the OpenCode equivalent of `.claude/settings.json`?** Probably
-      `.opencode/settings.json` or `.opencode/config.toml` — verify and adapt
-      `cli/templates/settings.json` from claude-sdlc-wizard accordingly.
-- [ ] **Does OpenCode have a slash-command system equivalent to Claude
-      Code's skills?** If yes, are skills discoverable via the same
-      `SKILL.md` frontmatter convention? If no, document the gap and
-      decide on a workaround (probably: ship as docs, invoke manually).
-- [ ] **Does OpenCode persist conversation/session state in a way our
-      `precompact-seam-check.sh` can hook into?** The hook gates manual
-      compact when `.reviews/handoff.json` is in PENDING_RECHECK — does
-      OpenCode have a compact event at all? If not, this hook may be a
-      no-op for OpenCode and that's fine.
-- [ ] **Backend selection mechanism.** How does a user tell OpenCode
-      "use Ollama" vs "use Azure"? Setup wizard needs to detect or prompt
-      for this and write the right config.
-- [ ] **`AGENTS.md` vs `CLAUDE.md`.** Codex uses `AGENTS.md` because it's
-      the standard agent-instruction file (works across many AI tools). Does
-      OpenCode honor `AGENTS.md`? Pick whichever it natively reads.
+- [x] **OpenCode hook event surface — NOT Claude-style hooks. Use plugins.**
+      OpenCode does not have a `.claude/settings.json`-style declarative hook
+      config. The closest equivalent is the **plugin system**: JS modules at
+      `.opencode/plugins/*.js` (project-local) or
+      `~/.config/opencode/plugins/` (global), automatically loaded at
+      startup. Plugin entry point:
+      ```javascript
+      export const MyPlugin = async ({ project, client, $, directory, worktree }) => {
+        return { /* event handlers */ }
+      }
+      ```
+      Plugins receive Bun's shell API (`$`), so they can shell out to bash
+      hooks. **Relevant events for port:**
+      - `session.created` ← Claude's `SessionStart`
+      - `tool.execute.before` ← Claude's `PreToolUse`
+      - `tool.execute.after` ← Claude's `PostToolUse`
+      - `experimental.session.compacting` ← Claude's `PreCompact`
+      - **No direct `UserPromptSubmit` analog.** Workaround: put SDLC
+        BASELINE content in `AGENTS.md` (loaded once per session) instead
+        of repeating it on every prompt. Loses per-prompt nudge cadence
+        but the content survives.
+      Source: https://opencode.ai/docs/plugins/
+- [x] **`.claude/settings.json` equivalent = `opencode.json` (or `.jsonc`)**
+      Top-level keys include `model`, `agent`, `command`, `permission`,
+      `compaction`, `mcp`, `plugin`, `instructions`. Schema:
+      `https://opencode.ai/config.json`. **No `hooks` key** — confirmed via
+      docs/config/. Hooks-equivalent goes through `plugin`.
+- [x] **Skill system — DIRECTLY COMPATIBLE.** OpenCode discovers skills at
+      multiple paths and walks up from cwd to git worktree root:
+      - Project-local: `.opencode/skills/<name>/SKILL.md`
+      - Global: `~/.config/opencode/skills/<name>/SKILL.md`
+      - **Claude-compatible: `.claude/skills/<name>/SKILL.md`** ← reads ours
+      - Agent-compatible: `.agents/skills/<name>/SKILL.md`
+      SKILL.md frontmatter convention is identical (YAML, `name` +
+      `description` required, lowercase-alphanumeric-with-hyphens name).
+      **Implication:** our 4 skills port verbatim — install at
+      `.opencode/skills/` (canonical) and the existing parent-wizard
+      skills also work via `.claude/skills/` if user dual-installs.
+      Source: https://opencode.ai/docs/skills/
+- [x] **Compact event exists — `experimental.session.compacting`.** Marked
+      experimental, but it's there. Our `precompact-seam-check.sh` adapts
+      via the plugin shim.
+- [x] **AGENTS.md is the primary instruction file.** Order of precedence:
+      (1) `AGENTS.md` then `CLAUDE.md` walking up from cwd; (2) global
+      `~/.config/opencode/AGENTS.md`; (3) `~/.claude/CLAUDE.md` fallback
+      for Claude Code migration. **Decision: ship AGENTS.md as the primary
+      instruction file**, matching Codex sibling. CLAUDE.md compat is a
+      free bonus from OpenCode's fallback logic.
+- [x] **Backend selection.** `opencode.json` has top-level `model` key plus
+      `provider` config. Setup wizard prompts for backend and writes the
+      appropriate `model` value (e.g., `"anthropic/claude-opus-4-7"`,
+      `"ollama/qwen-coder"`). Phase A ships the prompt + writes the value;
+      backend matrix proof is Phase B.
+- [x] **Custom commands.** OpenCode has a slash-command system at
+      `.opencode/commands/*.md` (filename = command name) with `template`
+      / `description` / `agent` / `model` config. Optional for Phase A —
+      not strictly needed since skills cover the workflow.
 
 ## Order of operations (next session: do these in order)
 

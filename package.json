@@ -1,7 +1,20 @@
 {
   "name": "opencode-sdlc-wizard",
-  "version": "0.0.1",
-  "description": "SDLC enforcement for OpenCode CLI — privacy-first, any-backend portability. Sibling of agentic-sdlc-wizard and codex-sdlc-wizard. Bootstrap stage.",
+  "version": "0.1.0",
+  "description": "SDLC enforcement for OpenCode CLI — privacy-first, any-backend portability. Sibling of agentic-sdlc-wizard and codex-sdlc-wizard.",
+  "files": [
+    "AGENTS.md",
+    "HANDOFF.md",
+    "README.md",
+    "LICENSE",
+    "install.sh",
+    ".opencode/",
+    "skills/",
+    "hooks/"
+  ],
+  "scripts": {
+    "test": "bash tests/test-bundle-integrity.sh && bash tests/test-plugin-shim.sh && bash tests/test-install.sh"
+  },
   "keywords": [
     "opencode",
     "sdlc",
