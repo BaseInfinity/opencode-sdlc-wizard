@@ -15,24 +15,14 @@ priority but may shuffle as real-world use surfaces friction.
 See [CHANGELOG.md](CHANGELOG.md#020---2026-05-04) for the full release
 notes.
 
-## v0.3.0 — `npx opencode-sdlc-wizard init` CLI
+## v0.3.0 — `npx opencode-sdlc-wizard init` CLI — shipped 2026-05-04
 
-Status: planned. Target after v0.2.0 sees real consumer use in OpenCode.
-
-The bash `install.sh` works but the wizard ships without an npx entry
-point. Parent `agentic-sdlc-wizard` exposes `npx agentic-sdlc-wizard
-init` via a `bin` field in package.json + a small Node CLI in
-`cli/bin/`. Mirroring that gives users a one-command install:
-
-```bash
-npx opencode-sdlc-wizard init
-```
-
-Scope:
-- Add `bin` entry to `package.json` mapping to `cli/bin/init.js`
-- Tiny Node wrapper that shells out to `install.sh`
-- Add `--dry-run` and `--target-dir` flags through to the bash installer
-- Update README + `npm pack --dry-run` test to verify CLI ships
+- ✅ `bin` entry in package.json → `cli/bin/opencode-sdlc-wizard.js`
+- ✅ Node wrapper that shells out to `install.sh` for the real run
+- ✅ Wrapper-level `--dry-run` previews bundle without writing
+- ✅ `--target-dir` / `--force` pass through to `install.sh`
+- ✅ 10 CLI tests in `tests/test-cli.sh` (123/123 total across 5 suites)
+- ✅ README updated to lead with `npx opencode-sdlc-wizard init`
 
 ## v0.3.0 candidate — `cross-model-review` skill (OSS reviewer)
 

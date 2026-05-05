@@ -1,8 +1,9 @@
 # OpenCode SDLC Wizard
 
-> **Status: v0.2.0 (privacy-first backend picker) — 2026-05-04.** Phase A
-> port (hooks, skills, AGENTS.md, install.sh) plus a four-tier backend
-> picker that defaults to the strongest data-locality guarantee available.
+> **Status: v0.3.0 (npx CLI + privacy-first backend picker) — 2026-05-04.**
+> Install with `npx opencode-sdlc-wizard init`. Phase A port (hooks,
+> skills, AGENTS.md, install.sh) plus a four-tier backend picker that
+> defaults to the strongest data-locality guarantee available.
 > Phase B (backend matrix proof) and Phase C (hardware scout) deferred to
 > follow-up releases. See [`HANDOFF.md`](HANDOFF.md) for architecture
 > decisions, [`PRIVACY.md`](PRIVACY.md) for the tier model, and
@@ -60,12 +61,23 @@ capability result, not a port bug.**
 
 ## Install
 
-From a target repo's root:
+From a target repo's root, the easiest path:
+
+```bash
+npx opencode-sdlc-wizard init
+```
+
+That's it. Equivalent to the longer manual form:
 
 ```bash
 git clone https://github.com/BaseInfinity/opencode-sdlc-wizard /tmp/opencode-sdlc-wizard
 bash /tmp/opencode-sdlc-wizard/install.sh
 ```
+
+Both paths are supported. `npx` is preferred for first-time installs;
+`git clone + install.sh` is preferred when you want to inspect the bundle
+before merging it. Re-run with `--force` to overwrite customizations,
+`--dry-run` to preview without writing.
 
 This non-destructively merges the wizard into your `.opencode/`:
 
@@ -77,8 +89,8 @@ This non-destructively merges the wizard into your `.opencode/`:
 
 Existing customizations are preserved. Re-run with `--force` to overwrite.
 
-A native `npx opencode-sdlc-wizard init` CLI is on the roadmap; for now
-the bash installer is the supported path.
+Native `npx opencode-sdlc-wizard init` shipped in v0.3.0. The bash
+installer remains the inspection/scripting path.
 
 ## Pick a backend (privacy-first)
 
@@ -113,9 +125,10 @@ bash tests/test-bundle-integrity.sh   # bundle correctness
 bash tests/test-plugin-shim.sh        # plugin ESM + bash hook validity
 bash tests/test-install.sh            # installer non-destructive behavior
 bash tests/test-backend-picker.sh     # detect/configure-backend behavior
+bash tests/test-cli.sh                # npx CLI wrapper
 ```
 
-Or `npm test` runs all four.
+Or `npm test` runs all five.
 
 ## Known limitations
 

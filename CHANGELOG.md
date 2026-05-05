@@ -2,6 +2,42 @@
 
 All notable changes to opencode-sdlc-wizard.
 
+## [0.3.0] - 2026-05-04
+
+### Added — `npx opencode-sdlc-wizard init` CLI
+
+Closes the install ergonomics gap. Previously the only paths were
+`git clone + bash install.sh` or `npm i + bash node_modules/.../install.sh`;
+neither reads as "easy as hell." v0.3.0 ships a `bin` entry plus a thin
+Node wrapper at `cli/bin/opencode-sdlc-wizard.js` that shells out to
+`install.sh`.
+
+```bash
+npx opencode-sdlc-wizard init
+npx opencode-sdlc-wizard init --target-dir /path
+npx opencode-sdlc-wizard init --dry-run
+npx opencode-sdlc-wizard --version
+npx opencode-sdlc-wizard --help
+```
+
+Wrapper-level `--dry-run` previews the bundle install without touching
+the target. All other flags (`--target-dir`, `--force`) pass through to
+`install.sh` unchanged.
+
+`package.json` now declares `bin.opencode-sdlc-wizard → cli/bin/opencode-sdlc-wizard.js`
+and adds `cli/` to the published `files[]`. Verified via `npm pack
+--dry-run` that the CLI ships in the tarball.
+
+### Tests
+
+- `tests/test-cli.sh` — 10 tests: bin executable, CLI parses, package.json
+  declarations correct, `--help` / `--version` / unknown subcommand,
+  `init --target-dir` does install, `init --dry-run` leaves target
+  untouched, `npm pack --dry-run` includes the CLI.
+
+**Total: 123 tests, all green** (68 bundle + 11 plugin + 13 install +
+21 picker + 10 CLI).
+
 ## [0.2.0] - 2026-05-04
 
 ### Fixed — live OpenCode E2E reliability (validation against 1.14.33)
