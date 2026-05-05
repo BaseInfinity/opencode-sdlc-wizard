@@ -1,0 +1,105 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/BaseInfinity/opencode-sdlc-wizard/blob/main/templates/schemas/handoff.schema.json",
+  "title": "Review Handoff",
+  "description": "Structure of .reviews/handoff.json — what one round of cross-model review needs to know before it starts. Hand-crafted by the implementing agent; consumed by the reviewer (codex / cross-model-review skill / human).",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "review_id",
+    "status",
+    "round",
+    "mission",
+    "success",
+    "failure",
+    "review_instructions"
+  ],
+  "properties": {
+    "review_id": {
+      "type": "string",
+      "description": "Unique identifier — convention is `<repo>-v<version>-<NNN>` (e.g., opencode-sdlc-wizard-v0.2.0-002).",
+      "minLength": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "PENDING_REVIEW",
+        "IN_REVIEW",
+        "CERTIFIED",
+        "NOT_CERTIFIED"
+      ]
+    },
+    "round": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "supersedes_round": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Set when this is a re-review of an earlier round; reviewer should compare deltas."
+    },
+    "mission": {
+      "type": "string",
+      "minLength": 1,
+      "description": "What this round of review is for. One paragraph. Be concrete about scope."
+    },
+    "success": {
+      "type": "string",
+      "minLength": 1,
+      "description": "What CERTIFIED looks like — enumerated success criteria the reviewer must verify."
+    },
+    "failure": {
+      "type": "string",
+      "minLength": 1,
+      "description": "What NOT_CERTIFIED looks like — enumerated failure modes the reviewer should hunt for."
+    },
+    "files_changed": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Files modified or created in the round under review. Use absolute repo-relative paths."
+    },
+    "files_unchanged": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Files NOT changed in this round whose prior state must still hold (e.g., earlier round's fixes verified intact)."
+    },
+    "verification_state": {
+      "$ref": "#/definitions/verification_state"
+    },
+    "review_instructions": {
+      "type": "string",
+      "minLength": 1,
+      "description": "How the reviewer should structure their pass — phases, what's in/out of scope, what the response must include."
+    },
+    "preflight_path": {
+      "type": "string",
+      "description": "Repo-relative path to the preflight-vN.M.X.md document (if any)."
+    },
+    "response_path": {
+      "type": "string",
+      "description": "Repo-relative path to .reviews/response.json (where the reviewer's structured findings land)."
+    },
+    "artifact_path": {
+      "type": "string",
+      "description": "External link to the artifact under review (commonly the GitHub repo URL or PR URL)."
+    }
+  },
+  "definitions": {
+    "verification_state": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "tests_green": { "type": "boolean" },
+        "test_counts": {
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 0 },
+          "description": "Per-suite pass count. The total key (if present) should be the sum of per-suite counts."
+        },
+        "live_e2e_verified": {
+          "type": "string",
+          "description": "Optional natural-language note about live E2E verification scope (e.g., 'opencode-ai@1.14.33 — plugin auto-load + 4 skills discovered')."
+        }
+      }
+    }
+  }
+}

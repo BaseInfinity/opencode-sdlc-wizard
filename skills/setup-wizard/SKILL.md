@@ -140,6 +140,13 @@ Based on Step 1 + 2 + 3 answers, generate or update:
   and the technical-decisions log seeded with the first entry.
 - **`opencode.json`** — already written in Step 3 if the user picked a
   backend. Otherwise, leave alone.
+- **Review-artifact schemas** — `.opencode/schemas/handoff.schema.json`
+  and `.opencode/schemas/response.schema.json` ship with the wizard
+  install. They're the canonical shape for `.reviews/handoff.json` +
+  `.reviews/response.json`. New review rounds should validate against
+  them before sending to a reviewer (the `cross-model-review` skill
+  does this automatically). No setup work needed — point users at the
+  schemas as reference when they create their first review artifact.
 
 Run `bash install.sh` (or skip if user already ran it) to copy hooks,
 plugin shim, and skills into `.opencode/`.

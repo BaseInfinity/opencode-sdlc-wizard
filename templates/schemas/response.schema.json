@@ -1,0 +1,128 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/BaseInfinity/opencode-sdlc-wizard/blob/main/templates/schemas/response.schema.json",
+  "title": "Review Response",
+  "description": "Structure of .reviews/response.json — the reviewer's structured findings + per-finding fix status. Hand-crafted by the reviewer (or by the implementing agent on round N+1 reflecting fixes from round N).",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "review_id",
+    "round",
+    "responses"
+  ],
+  "properties": {
+    "review_id": {
+      "type": "string",
+      "description": "Must match the handoff.json review_id this response is paired with.",
+      "minLength": 1
+    },
+    "round": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "responses": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/finding" },
+      "description": "One entry per finding. New findings are appended as the round progresses; status flips when the implementing agent applies a fix."
+    },
+    "verification_state": {
+      "$ref": "#/definitions/verification_state"
+    },
+    "preflight_path": { "type": "string" },
+    "handoff_path": { "type": "string" },
+    "artifact_path": { "type": "string" }
+  },
+  "patternProperties": {
+    "^recheck_instructions_for_round_[0-9]+$": {
+      "type": "string",
+      "description": "Instructions for the next round's recheck — keyed by target round number (e.g., recheck_instructions_for_round_3)."
+    }
+  },
+  "definitions": {
+    "finding": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "finding_id",
+        "severity",
+        "title",
+        "claim",
+        "status"
+      ],
+      "properties": {
+        "finding_id": {
+          "type": "string",
+          "description": "Short stable id used to cross-reference (e.g., F1, F2, E2E-RACE).",
+          "minLength": 1
+        },
+        "severity": {
+          "type": "string",
+          "pattern": "^P[0-2]( \\(.*\\))?$",
+          "description": "P0 / P1 / P2. Optional parenthetical context allowed (e.g., 'P0 (caught by live E2E, NOT in round-2)')."
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "claim": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The reviewer's full claim — what's broken and how they verified it."
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "OPEN",
+            "IN_PROGRESS",
+            "FIXED",
+            "NOT_FIXED",
+            "ACCEPTED",
+            "REJECTED",
+            "WONT_FIX",
+            "DEFERRED"
+          ]
+        },
+        "fix_summary": {
+          "type": "string",
+          "description": "Short prose description of the applied fix. Required when status=FIXED."
+        },
+        "fix_locations": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "file:line refs for where the fix landed. Required when status=FIXED."
+        },
+        "regression_tests": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Test names or `path/to/test.sh — \"<test description>\"` references that pin the fix against regression."
+        },
+        "rejection_reason": {
+          "type": "string",
+          "description": "Required when status=REJECTED or WONT_FIX. Explain the disagreement or scope decision."
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "FIXED" } } },
+          "then": { "required": ["fix_summary", "fix_locations"] }
+        },
+        {
+          "if": { "properties": { "status": { "enum": ["REJECTED", "WONT_FIX"] } } },
+          "then": { "required": ["rejection_reason"] }
+        }
+      ]
+    },
+    "verification_state": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "tests_green": { "type": "boolean" },
+        "test_counts": {
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        },
+        "live_e2e_verified": { "type": "string" }
+      }
+    }
+  }
+}

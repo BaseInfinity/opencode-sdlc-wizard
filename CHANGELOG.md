@@ -2,6 +2,106 @@
 
 All notable changes to opencode-sdlc-wizard.
 
+## [0.7.0] - 2026-05-05
+
+### Added — JSON Schemas for review artifacts + zero-dep validator
+
+Codifies the structures the wizard has been hand-writing across review
+rounds. The `.reviews/handoff.json` and `.reviews/response.json` shapes
+were previously implicit — every reviewer + every consumer had to infer
+them. v0.7.0 makes both shapes explicit + machine-checkable.
+
+**`templates/schemas/handoff.schema.json`** — JSON Schema (draft-07) for
+the handoff artifact: `review_id`, `status` (PENDING_REVIEW / IN_REVIEW
+/ CERTIFIED / NOT_CERTIFIED), `round`, `mission`, `success`, `failure`,
+`review_instructions`, plus optional `files_changed`, `verification_state`
+with `tests_green` + `test_counts`, `preflight_path`, `response_path`,
+`artifact_path`. Permissive `additionalProperties: true` for forward
+compat — extra fields don't break validation.
+
+**`templates/schemas/response.schema.json`** — Schema for the response
+artifact: top-level `responses[]` array with per-finding shape
+(`finding_id`, `severity` matching `^P[0-2]( \(.*\))?$` to allow
+parenthetical context, `title`, `claim`, `status`). Conditional
+validation enforces: `FIXED` requires `fix_summary` + `fix_locations`;
+`REJECTED` / `WONT_FIX` requires `rejection_reason`. Pattern-key
+support for `recheck_instructions_for_round_N`.
+
+**`scripts/validate-review-artifact.sh`** + companion `.js` — zero-dep
+validator (pure node, no `npm install`). Implements the draft-07 subset
+the schemas use: `type`, `required`, `properties`, `enum`, `pattern`,
+`minLength`, `minimum`, `items`, `$ref` (#/definitions/*),
+`patternProperties`, `allOf` with `if`/`then`, `const`, `definitions`.
+Exit codes: `0` valid / `1` invalid (errors with jsonpath + reason on
+stderr) / `2` usage / missing-file / unparseable JSON.
+
+Both schemas + validator install to `.opencode/schemas/` and
+`.opencode/scripts/` respectively. Live `.reviews/handoff.json` and
+`.reviews/response.json` (round-2 artifacts from v0.2.0) validate
+against the schemas — the schemas were derived from these artifacts so
+they're guaranteed compatible with prior rounds.
+
+### Updated — skills consume the schemas
+
+**`cross-model-review` SKILL.md** — new Step 1.5 validates handoff +
+response against the schemas before sending the prompt to the reviewer.
+A malformed handoff wastes reviewer tokens and produces a confused
+review; validation is fast (zero deps, sub-100ms) and fails fast with
+specific jsonpath + reason for every error.
+
+**`setup-wizard` SKILL.md** — Step 4 (Generate) now mentions the
+schemas as the canonical shape for review artifacts. No setup work
+required (schemas auto-install); the skill points consumers at them
+when they create their first review artifact.
+
+### Drift-test extension
+
+`tests/test-bundle-drift.sh` extended to:
+- Include `scripts/*.js` companions in the "every script ships in
+  install.sh" check (T7) — without this, a `.js` file added to scripts/
+  but forgotten in install.sh would silently never reach consumers.
+- New T12: every `templates/schemas/*.schema.json` must be shipped by
+  install.sh — same drift-class for the schemas dir.
+
+### Tests
+
+- `tests/test-review-schemas.sh` — 28 tests covering: schemas exist +
+  parse + declare draft-07; validator script exists + executable +
+  prints usage on `--help` + handles missing-file/bad-JSON gracefully;
+  live `.reviews/*.json` artifacts validate; negative cases for missing
+  required fields, bad enum, wrong type, FIXED-status missing
+  `fix_summary`/`fix_locations`, REJECTED-status missing
+  `rejection_reason`, P3 severity (pattern violation), parenthetical
+  P0 severity (allowed), `recheck_instructions_for_round_N` pattern
+  keys; bundle-test that install lands schemas + validator at the
+  expected paths and the installed pair validates the live handoff
+  end-to-end.
+
+**Total: 270 tests across 11 suites** (73 + 11 + 13 + 21 + 10 + 10 +
+26 + 51 + 10 + 17 + 28). bundle-drift grew from 48 → 51 (`.js`
+inclusion + 2 schema-shipped checks).
+
+### Changed
+
+- `install.sh` REQUIRED_SOURCES + declare_target add the validator
+  pair (`.sh` + `.js`) and both schemas.
+- `package.json` `description` mentions JSON Schemas; `test` script
+  adds the new suite. `files[]` already includes `scripts/` and
+  `templates/`, so the new files publish without further changes.
+
+### Why this matters
+
+The handoff/response artifacts have been the load-bearing
+hand-shake between the implementing agent and the reviewer all
+session. Locking the shape down means: (1) `cross-model-review` skill
+fails fast on bad handoffs instead of producing confused reviews,
+(2) the `ditto` cross-host migrator (when it lands at v0.1.0) can
+parse + transform these artifacts safely, (3) any future CI tooling
+gating release on a CERTIFIED status can validate the artifact
+shape with zero `npm install`. Forward-compat is preserved — extra
+keys are allowed, so older artifacts validate against the new schema
+without retrofit.
+
 ## [0.6.0] - 2026-05-05
 
 ### Added — `SDLC.md` and `ARCHITECTURE.md` templates

@@ -64,12 +64,27 @@ the script logic; live E2E proves the wiring against a real reviewer.
 - ✅ setup-wizard skill references both templates
 - ✅ 17 tests in `test-doc-templates.sh` (238 total across 10 suites)
 
-## v0.7.0+ candidates (unprioritized)
+## v0.7.0 — JSON schemas for review artifacts + zero-dep validator — shipped 2026-05-05
 
-- **JSON schemas for `.reviews/handoff.json` + `response.json`**: codify
-  the structures we've been hand-writing all session. Lets ditto v0.1.0
-  + cross-model-review consume them safely. Tests assert any new review
-  artifact validates against the schema.
+- ✅ `templates/schemas/handoff.schema.json` — draft-07 schema for the
+  handoff artifact (review_id / status / round / mission / success /
+  failure / review_instructions + optional fields)
+- ✅ `templates/schemas/response.schema.json` — draft-07 schema for the
+  response artifact, including conditional validation (FIXED requires
+  fix_summary+fix_locations; REJECTED requires rejection_reason) and
+  patternProperty support for `recheck_instructions_for_round_N`
+- ✅ `scripts/validate-review-artifact.sh` + `.js` — zero-dep node
+  validator (no `npm install` to consumers); handles draft-07 subset
+  the schemas use including $ref + allOf if/then + const
+- ✅ install lands schemas at `.opencode/schemas/` + validator at
+  `.opencode/scripts/`
+- ✅ `cross-model-review` skill new Step 1.5 — validate before sending
+  the prompt; `setup-wizard` skill mentions schemas in Step 4
+- ✅ Drift-test extension: scripts/*.js + templates/schemas/* coverage
+- ✅ 28 tests in `test-review-schemas.sh` (270 total across 11 suites)
+
+## v0.8.0+ candidates (unprioritized)
+
 - **Mixed-mode skill**: setup-wizard could pin a coder model + a
   reviewer model in one config (today they're picked separately).
 - **Auto-nudge integration**: `instructions-loaded-check.sh` hook
@@ -78,6 +93,9 @@ the script logic; live E2E proves the wiring against a real reviewer.
 - **OPENCODE_SDLC_WIZARD.md master doc**: equivalent of parent's
   4506-line CLAUDE_CODE_SDLC_WIZARD.md. Heavier lift; defer until
   consumer feedback says it's needed.
+- **Schema versioning + migration**: when v0.7.0 schemas need a
+  breaking change, add `$schema_version` field + a migrator the
+  validator runs through. Defer until first breaking change is needed.
 
 ## Phase B — backend matrix proof
 

@@ -56,6 +56,29 @@ If `.reviews/handoff.json` is missing, surface this to the user and
 stop — the skill does not auto-generate a handoff. Direct them to the
 `feedback` or `setup-wizard` skill if they're not sure how to create one.
 
+### Step 1.5 — Validate review artifacts against the schema
+
+Before sending the prompt to a reviewer, validate the handoff + response
+JSON against the canonical schemas. A malformed handoff wastes reviewer
+tokens and produces a confused review. Validation is fast (zero deps,
+pure node).
+
+```bash
+bash .opencode/scripts/validate-review-artifact.sh \
+  .reviews/handoff.json \
+  .opencode/schemas/handoff.schema.json
+
+bash .opencode/scripts/validate-review-artifact.sh \
+  .reviews/response.json \
+  .opencode/schemas/response.schema.json
+```
+
+Both must exit 0 before proceeding. If either fails, fix the artifact
+(the validator prints jsonpath + reason for every error) and re-run.
+The schemas codify the structure used across review rounds — they're
+also what `ditto` v0.1.0 will consume to migrate review artifacts
+between sibling repos.
+
 ### Step 2 — Pick a reviewer model
 
 Recommend by tier (privacy-first ordering):

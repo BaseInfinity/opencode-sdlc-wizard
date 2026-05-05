@@ -69,6 +69,8 @@ REQUIRED_SOURCES=(
   "scripts/configure-backend.sh"
   "scripts/cross-model-review.sh"
   "scripts/check-updates.sh"
+  "scripts/validate-review-artifact.sh"
+  "scripts/validate-review-artifact.js"
   "skills/sdlc/SKILL.md"
   "skills/setup-wizard/SKILL.md"
   "skills/update-wizard/SKILL.md"
@@ -80,6 +82,8 @@ REQUIRED_SOURCES=(
   "templates/testing/web.md"
   "templates/sdlc.md"
   "templates/architecture.md"
+  "templates/schemas/handoff.schema.json"
+  "templates/schemas/response.schema.json"
 )
 
 for f in "${REQUIRED_SOURCES[@]}"; do
@@ -102,6 +106,8 @@ declare_target() {
     "scripts/configure-backend.sh") echo ".opencode/scripts/configure-backend.sh" ;;
     "scripts/cross-model-review.sh") echo ".opencode/scripts/cross-model-review.sh" ;;
     "scripts/check-updates.sh") echo ".opencode/scripts/check-updates.sh" ;;
+    "scripts/validate-review-artifact.sh") echo ".opencode/scripts/validate-review-artifact.sh" ;;
+    "scripts/validate-review-artifact.js") echo ".opencode/scripts/validate-review-artifact.js" ;;
     "skills/sdlc/SKILL.md") echo ".opencode/skills/sdlc/SKILL.md" ;;
     "skills/setup-wizard/SKILL.md") echo ".opencode/skills/setup-wizard/SKILL.md" ;;
     "skills/update-wizard/SKILL.md") echo ".opencode/skills/update-wizard/SKILL.md" ;;
@@ -113,6 +119,8 @@ declare_target() {
     "templates/testing/web.md") echo ".opencode/templates/testing/web.md" ;;
     "templates/sdlc.md") echo ".opencode/templates/sdlc.md" ;;
     "templates/architecture.md") echo ".opencode/templates/architecture.md" ;;
+    "templates/schemas/handoff.schema.json") echo ".opencode/schemas/handoff.schema.json" ;;
+    "templates/schemas/response.schema.json") echo ".opencode/schemas/response.schema.json" ;;
     *) echo "$1" ;;
   esac
 }

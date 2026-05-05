@@ -1,15 +1,19 @@
 # OpenCode SDLC Wizard
 
-> **Status: v0.6.0 (full template set + check subcommand + drift
-> detection + OSS-tier reviewer + backend picker) — 2026-05-05.**
-> Install with `npx opencode-sdlc-wizard init`, check upstream with
-> `npx opencode-sdlc-wizard check`. Full SDLC loop is any-backend on
-> both coder AND reviewer (zero Anthropic+OpenAI lock-in possible);
-> setup-wizard ships SDLC.md + ARCHITECTURE.md + 4 domain-specific
-> TESTING.md templates so consumers don't reinvent.
-> Phase B (backend matrix proof) and Phase C (hardware scout) deferred to
-> follow-up releases. See [`HANDOFF.md`](HANDOFF.md) for architecture
-> decisions, [`PRIVACY.md`](PRIVACY.md) for the tier model, and
+> **Status: v0.7.0 (schemas + validator + full template set + check
+> subcommand + drift detection + OSS-tier reviewer + backend picker) —
+> 2026-05-05.** Install with `npx opencode-sdlc-wizard init`, check
+> upstream with `npx opencode-sdlc-wizard check`. Full SDLC loop is
+> any-backend on both coder AND reviewer (zero Anthropic+OpenAI lock-in
+> possible); setup-wizard ships SDLC.md + ARCHITECTURE.md + 4
+> domain-specific TESTING.md templates so consumers don't reinvent.
+> Review artifacts (`.reviews/handoff.json` + `.reviews/response.json`)
+> have machine-checkable JSON Schemas + a zero-dep validator so
+> downstream consumers (cross-model-review, ditto, CI) can fail fast on
+> malformed handoffs. Phase B (backend matrix proof) and Phase C
+> (hardware scout) deferred to follow-up releases. See
+> [`HANDOFF.md`](HANDOFF.md) for architecture decisions,
+> [`PRIVACY.md`](PRIVACY.md) for the tier model, and
 > [`CHANGELOG.md`](CHANGELOG.md) for release notes.
 
 SDLC enforcement for [`sst/opencode`](https://github.com/sst/opencode) — the
@@ -129,9 +133,15 @@ bash tests/test-plugin-shim.sh        # plugin ESM + bash hook validity
 bash tests/test-install.sh            # installer non-destructive behavior
 bash tests/test-backend-picker.sh     # detect/configure-backend behavior
 bash tests/test-cli.sh                # npx CLI wrapper
+bash tests/test-cross-model-review.sh # OSS-tier reviewer skill + script
+bash tests/test-domain-templates.sh   # TESTING.md domain templates
+bash tests/test-bundle-drift.sh       # bundle drift / mirror guards
+bash tests/test-check-cli.sh          # check subcommand + staleness
+bash tests/test-doc-templates.sh      # SDLC.md + ARCHITECTURE.md templates
+bash tests/test-review-schemas.sh     # JSON Schemas + validator
 ```
 
-Or `npm test` runs all five.
+Or `npm test` runs all eleven (270 tests).
 
 ## Known limitations
 

@@ -134,8 +134,9 @@ fi
 
 # T7: every script in scripts/ that's still in the source tree must be
 # listed in install.sh (or it ships in the tarball but never reaches
-# the target's .opencode/scripts/)
-for s in "$REPO_ROOT"/scripts/*.sh; do
+# the target's .opencode/scripts/). Covers both .sh wrappers and .js
+# companions (e.g., validate-review-artifact.sh + .js).
+for s in "$REPO_ROOT"/scripts/*.sh "$REPO_ROOT"/scripts/*.js; do
   [ -f "$s" ] || continue
   base="$(basename "$s")"
   if grep -qE "scripts/$base" "$REPO_ROOT/install.sh"; then
@@ -199,6 +200,19 @@ for d in "$REPO_ROOT"/skills/*/; do
     pass "drift-guard: skills/$base SKILL.md frontmatter name matches dir"
   else
     fail "drift-guard: skills/$base/SKILL.md frontmatter name='$fm_name' but dir='$base'"
+  fi
+done
+
+# T12: every schema in templates/schemas/ must be shipped by install.sh.
+# Schemas that exist on disk but aren't installed silently fail to reach
+# consumers (cross-model-review skill, ditto, downstream validators).
+for s in "$REPO_ROOT"/templates/schemas/*.schema.json; do
+  [ -f "$s" ] || continue
+  base="$(basename "$s")"
+  if grep -qE "templates/schemas/$base" "$REPO_ROOT/install.sh"; then
+    pass "templates/schemas/$base is shipped by install.sh"
+  else
+    fail "templates/schemas/$base exists but install.sh never installs it"
   fi
 done
 
