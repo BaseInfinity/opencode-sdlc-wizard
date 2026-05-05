@@ -2,6 +2,41 @@
 
 All notable changes to opencode-sdlc-wizard.
 
+## [0.4.1] - 2026-05-05
+
+### Fixed — bundle-drift test caught + fixed real reference bug
+
+`skills/sdlc/SKILL.md` (kept verbatim from parent in v0.1.0) referenced
+`scripts/codex-review-with-progress.sh` — a parent-only helper we
+never ported. New consumers running `skill({ name: "sdlc" })` would
+hit a missing-script dead end.
+
+### Added — `tests/test-bundle-drift.sh` (28 tests)
+
+Catches future internal-reference drift before it ships:
+- Every `scripts/<name>.sh` reference in skills/AGENTS.md/README/PRIVACY
+  must resolve to a real file
+- Every `skill({ name: "<id>" })` reference must resolve to a shipping
+  skill
+- Every script in `scripts/` must be listed in install.sh
+- Every skill dir in `skills/` must be listed in install.sh
+- install.sh's REQUIRED_SOURCES + declare_target arrays must stay in
+  sync (orphaned source = silent install at wrong path)
+- Skill dir name == frontmatter name (redundant guard, defense in
+  depth)
+
+Total: 192 tests, all green (73 + 11 + 13 + 21 + 10 + 10 + 26 + 28).
+
+### Improved — `skills/sdlc/SKILL.md` cross-model-review pointer
+
+The cross-model review section now points to
+`skill({ name: "cross-model-review" })` as the OSS-tier alternative to
+the codex flow. Previously the skill assumed codex; v0.3.1 shipped the
+alternative skill, v0.4.1 surfaces it from the canonical SDLC workflow.
+
+Also documents the `</dev/null` codex-stdin gotcha discovered live in
+v0.2.0 + v0.3.0 ship work.
+
 ## [0.4.0] - 2026-05-04
 
 ### Added — domain-adaptive TESTING.md templates

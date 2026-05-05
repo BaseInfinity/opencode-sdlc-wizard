@@ -167,7 +167,7 @@ codex exec -c 'model_reasoning_effort="xhigh"' -s danger-full-access \
    End with: score (1-10), CERTIFIED or NOT CERTIFIED."
 ```
 
-Always `xhigh` — lower settings miss subtle errors. **Progress (#259):** xhigh runs take 1-5 min; for a heartbeat use `scripts/codex-review-with-progress.sh` (`SDLC_CODEX_HEARTBEAT_INTERVAL` tunes). **Sandbox:** Codex's Rust binary needs `SCDynamicStore`; CC's sandbox blocks this. From CC, use `dangerouslyDisableSandbox: true` — Codex has its own sandbox via `-s danger-full-access`. Known issue: [codex#15640](https://github.com/openai/codex/issues/15640).
+Always `xhigh` — lower settings miss subtle errors. **Progress:** xhigh runs take 1-5 min; tail the output file (`tail -f .reviews/latest-review.md` from another terminal) for a heartbeat. **Sandbox:** Codex's Rust binary needs `SCDynamicStore`; some agent runtimes' sandboxes block this. From those, use the runtime's sandbox-bypass — Codex has its own sandbox via `-s danger-full-access`. **Stdin gotcha (codex v0.128.0):** `codex exec ... "<prompt>"` hangs silently waiting for stdin EOF; always pipe `</dev/null`. Known issue: [codex#15640](https://github.com/openai/codex/issues/15640). For an OSS-tier alternative reviewer that runs through OpenCode (no OpenAI dependency), use `skill({ name: "cross-model-review" })`.
 
 CERTIFIED → CI. NOT CERTIFIED → dialogue loop.
 
