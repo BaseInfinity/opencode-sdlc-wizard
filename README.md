@@ -1,19 +1,19 @@
 # OpenCode SDLC Wizard
 
-> **Status: v0.7.0 (schemas + validator + full template set + check
-> subcommand + drift detection + OSS-tier reviewer + backend picker) —
+> **Status: v0.8.0 (free-tier-first picker + cost ladder doc + Cerebras
+> / DeepSeek-direct / NVIDIA NIM / Google AI Studio / MLX detection +
+> schemas + validator + full template set + check subcommand) —
 > 2026-05-05.** Install with `npx opencode-sdlc-wizard init`, check
 > upstream with `npx opencode-sdlc-wizard check`. Full SDLC loop is
 > any-backend on both coder AND reviewer (zero Anthropic+OpenAI lock-in
-> possible); setup-wizard ships SDLC.md + ARCHITECTURE.md + 4
-> domain-specific TESTING.md templates so consumers don't reinvent.
-> Review artifacts (`.reviews/handoff.json` + `.reviews/response.json`)
-> have machine-checkable JSON Schemas + a zero-dep validator so
-> downstream consumers (cross-model-review, ditto, CI) can fail fast on
-> malformed handoffs. Phase B (backend matrix proof) and Phase C
-> (hardware scout) deferred to follow-up releases. See
-> [`HANDOFF.md`](HANDOFF.md) for architecture decisions,
-> [`PRIVACY.md`](PRIVACY.md) for the tier model, and
+> possible); detector now picks up free-tier-friendly providers
+> (Cerebras free, NVIDIA NIM credits, Groq free, Google AI Studio
+> quota) and the new `--free-tier-first` flag biases recommendations
+> toward $0/mo paths. See [`docs/cost-ladder.md`](docs/cost-ladder.md)
+> for the $0 / $20 / $200 budget breakdown.
+> Phase B (backend matrix proof) and Phase C (hardware scout) deferred
+> to follow-up releases. See [`HANDOFF.md`](HANDOFF.md) for architecture
+> decisions, [`PRIVACY.md`](PRIVACY.md) for the tier model, and
 > [`CHANGELOG.md`](CHANGELOG.md) for release notes.
 
 SDLC enforcement for [`sst/opencode`](https://github.com/sst/opencode) — the
@@ -23,10 +23,14 @@ OpenCode runtime, so users can get SDLC discipline against **whatever model
 backend their privacy / compliance constraints allow** — not just Anthropic.
 
 Supported backends OpenCode already speaks (and we'll inherit):
-- **Local:** Ollama, LM Studio, llama.cpp, vLLM
+- **Local:** Ollama, LM Studio, llama.cpp, vLLM, MLX (Apple Silicon)
 - **Enterprise:** Azure OpenAI, AWS Bedrock, internal AI gateways
-- **Hosted OSS:** Together, Groq, OpenRouter
-- **Standard:** OpenAI, Anthropic
+- **Hosted OSS:** Together, Groq, OpenRouter, Cerebras, DeepSeek-direct, NVIDIA NIM
+- **Standard:** OpenAI, Anthropic, Google AI Studio (Gemini)
+
+For a concrete cost-vs-capability map across these — including
+$0/mo, $20/mo, $200/mo budget paths and which model fits which job —
+see [`docs/cost-ladder.md`](docs/cost-ladder.md).
 
 ## XDLC Ecosystem (Sibling Projects)
 
@@ -102,13 +106,22 @@ installer remains the inspection/scripting path.
 ## Pick a backend (privacy-first)
 
 ```bash
-# See what's reachable from this machine
+# See what's reachable from this machine (privacy-first cascade)
 bash .opencode/scripts/detect-backends.sh
+
+# Or bias toward free-tier providers (NVIDIA NIM, Cerebras, Groq,
+# Google AI Studio) before paid hosted/proprietary
+bash .opencode/scripts/detect-backends.sh --free-tier-first
 
 # Configure the highest-privacy tier you can use
 bash .opencode/scripts/configure-backend.sh \
      --tier private_local --provider ollama \
      --model qwen2.5-coder:32b
+
+# Or for a $0/mo free-tier setup (Cerebras free, sub-second inference):
+bash .opencode/scripts/configure-backend.sh \
+     --tier hosted_oss --provider cerebras \
+     --model llama-3.3-70b
 ```
 
 Four tiers, ordered by where your prompts travel:

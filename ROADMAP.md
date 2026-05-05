@@ -83,10 +83,25 @@ the script logic; live E2E proves the wiring against a real reviewer.
 - ✅ Drift-test extension: scripts/*.js + templates/schemas/* coverage
 - ✅ 28 tests in `test-review-schemas.sh` (270 total across 11 suites)
 
-## v0.8.0+ candidates (unprioritized)
+## v0.8.0 — free-tier-first cascade + 5 providers + cost ladder — shipped 2026-05-05
+
+- ✅ `--free-tier-first` flag on `detect-backends.sh` (and
+  `DETECT_FREE_TIER_FIRST=1` env) biases cascade toward free providers
+- ✅ 5 new providers wired through detector + configure-backend:
+  Cerebras, DeepSeek direct, NVIDIA NIM, Google AI Studio (Gemini),
+  MLX (Apple Silicon native)
+- ✅ `docs/cost-ladder.md` — concrete $0 / $20 / $200 monthly budget
+  paths with per-job picker table
+- ✅ README bumped + cross-links to cost ladder
+- ✅ package.json files[] adds docs/ so cost ladder ships in tarball
+- ✅ 8 new picker tests + 7 new doc-template tests (285 total / 11 suites)
+
+## v0.9.0+ candidates (unprioritized)
 
 - **Mixed-mode skill**: setup-wizard could pin a coder model + a
   reviewer model in one config (today they're picked separately).
+  This is the natural complement to the cost-ladder doc — automate
+  the hybrid coder/reviewer pattern.
 - **Auto-nudge integration**: `instructions-loaded-check.sh` hook
   delegates to `check-updates.sh` instead of duplicating the version-
   check logic. Net: one source of truth, fewer drift opportunities.
@@ -96,6 +111,9 @@ the script logic; live E2E proves the wiring against a real reviewer.
 - **Schema versioning + migration**: when v0.7.0 schemas need a
   breaking change, add `$schema_version` field + a migrator the
   validator runs through. Defer until first breaking change is needed.
+- **Auto-picker tool**: pipe detect-backends → configure-backend in
+  one command (`opencode-sdlc-wizard pick --free-tier-first`). The
+  raw scripts work today; this is just sugar.
 
 ## Phase B — backend matrix proof
 

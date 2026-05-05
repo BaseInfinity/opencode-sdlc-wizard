@@ -91,6 +91,31 @@ for d in sdlc architecture; do
   fi
 done
 
+# T18-T22: docs/cost-ladder.md (v0.8.0)
+COST_LADDER="$REPO_ROOT/docs/cost-ladder.md"
+
+if [ -f "$COST_LADDER" ]; then
+  pass "docs/cost-ladder.md exists"
+else
+  fail "docs/cost-ladder.md missing"
+fi
+
+# Load-bearing sections — the doc's whole point is the three budget tiers
+for marker in '\$0/mo' '\$20/mo' '\$200/mo' "capability floor" "hybrid"; do
+  if [ -f "$COST_LADDER" ] && grep -qiE "$marker" "$COST_LADDER"; then
+    pass "cost-ladder.md mentions /$marker/"
+  else
+    fail "cost-ladder.md missing /$marker/"
+  fi
+done
+
+# package.json files[] must include docs/ so npm publish ships the cost ladder
+if grep -qE '"docs/"' "$REPO_ROOT/package.json"; then
+  pass "package.json files[] includes docs/ (cost-ladder.md will publish)"
+else
+  fail "package.json files[] missing docs/"
+fi
+
 echo ""
 echo "=== Results: $PASS passed, $FAIL failed ==="
 [ "$FAIL" -eq 0 ] || exit 1

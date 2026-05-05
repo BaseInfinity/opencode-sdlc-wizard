@@ -3,10 +3,10 @@
 # current (or --target-dir) repo.
 #
 # Privacy tiers (privacy-first, ordered):
-#   private_local   ollama / lm_studio / llama_cpp / vllm
+#   private_local   ollama / lm_studio / llama_cpp / vllm / mlx
 #   enterprise      azure_openai / aws_bedrock
-#   hosted_oss      together / groq / openrouter
-#   proprietary     anthropic / openai
+#   hosted_oss      together / groq / openrouter / cerebras / deepseek / nvidia_nim
+#   proprietary     anthropic / openai / google_aistudio
 #
 # Usage:
 #   configure-backend.sh --tier <tier> --provider <provider> --model <model>
@@ -81,6 +81,11 @@ const PROVIDER_ALIASES = {
   togetherai: "togetherai",
   groq: "groq",
   openrouter: "openrouter",
+  cerebras: "cerebras",
+  deepseek: "deepseek",
+  nvidia_nim: "nvidia",
+  "nvidia-nim": "nvidia",
+  nvidia: "nvidia",
   // private_local
   ollama: "ollama",
   lm_studio: "lmstudio",
@@ -88,9 +93,13 @@ const PROVIDER_ALIASES = {
   llama_cpp: "llamacpp",
   llamacpp: "llamacpp",
   vllm: "vllm",
+  mlx: "mlx",
   // proprietary
   anthropic: "anthropic",
   openai: "openai",
+  google_aistudio: "google",
+  google: "google",
+  gemini: "google",
 };
 const provider = PROVIDER_ALIASES[providerArg] || providerArg;
 
@@ -143,6 +152,18 @@ function fragmentFor(tier, provider, model) {
           vllm: {
             npm: "@ai-sdk/openai-compatible",
             options: { baseURL: "http://127.0.0.1:8000/v1" },
+            models: { [model]: {} },
+          },
+        },
+      };
+    case "private_local/mlx":
+      // mlx_lm.server defaults to port 8080. Apple-Silicon-only.
+      return {
+        model: `mlx/${model}`,
+        provider: {
+          mlx: {
+            npm: "@ai-sdk/openai-compatible",
+            options: { baseURL: "http://127.0.0.1:8080/v1" },
             models: { [model]: {} },
           },
         },
@@ -205,6 +226,65 @@ function fragmentFor(tier, provider, model) {
             options: {
               apiKey: "{env:OPENROUTER_API_KEY}",
               baseURL: "https://openrouter.ai/api/v1",
+            },
+            models: { [model]: {} },
+          },
+        },
+      };
+    case "hosted_oss/cerebras":
+      return {
+        model: `cerebras/${model}`,
+        provider: {
+          cerebras: {
+            npm: "@ai-sdk/openai-compatible",
+            options: {
+              apiKey: "{env:CEREBRAS_API_KEY}",
+              baseURL: "https://api.cerebras.ai/v1",
+            },
+            models: { [model]: {} },
+          },
+        },
+      };
+    case "hosted_oss/deepseek":
+      return {
+        model: `deepseek/${model}`,
+        provider: {
+          deepseek: {
+            npm: "@ai-sdk/openai-compatible",
+            options: {
+              apiKey: "{env:DEEPSEEK_API_KEY}",
+              baseURL: "https://api.deepseek.com/v1",
+            },
+            models: { [model]: {} },
+          },
+        },
+      };
+    case "hosted_oss/nvidia":
+      return {
+        model: `nvidia/${model}`,
+        provider: {
+          nvidia: {
+            npm: "@ai-sdk/openai-compatible",
+            options: {
+              apiKey: "{env:NVIDIA_API_KEY}",
+              baseURL: "https://integrate.api.nvidia.com/v1",
+            },
+            models: { [model]: {} },
+          },
+        },
+      };
+    case "proprietary/google":
+      // Google AI Studio (Gemini). Closed weights, but generous free tier
+      // (1500 req/day on Flash). OpenCode talks to Google's OpenAI-compatible
+      // endpoint at generativelanguage.googleapis.com.
+      return {
+        model: `google/${model}`,
+        provider: {
+          google: {
+            npm: "@ai-sdk/openai-compatible",
+            options: {
+              apiKey: "{env:GOOGLE_API_KEY}",
+              baseURL: "https://generativelanguage.googleapis.com/v1beta/openai",
             },
             models: { [model]: {} },
           },
