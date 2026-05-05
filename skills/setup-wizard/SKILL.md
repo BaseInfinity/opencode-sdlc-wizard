@@ -97,9 +97,27 @@ For each unresolved data point, ask once. Do not ask a fixed checklist.
    different one. The configurator merges non-destructively; existing
    unrelated keys in `opencode.json` are preserved.
 
-2. **Domain.** firmware / data-science / CLI / web — affects TESTING.md
-   generation. Default: infer from package.json + repo structure if
-   possible.
+2. **Domain.** firmware / data-science / CLI / web — picks which
+   `TESTING.md` template to generate. Detect from repo signals:
+   - **firmware**: Makefile with flash/burn/program targets, `.cfg`
+     device files, `platformio.ini`, `.dts` device trees, `.c`/`.h`
+     source dominance
+   - **data-science**: `.ipynb` notebooks, `requirements.txt` /
+     `pyproject.toml` with `pandas`/`scikit-learn`/`tensorflow`/`torch`,
+     `data/` or `datasets/` dirs, `models/` dir
+   - **cli**: `package.json` with `bin` field (and no React / Vue /
+     Angular), `bin/` dir, `src/cli.*`, no `src/components/`
+   - **web**: default fallback — everything else
+   One domain per project; dominant signal wins. Default to web/API
+   only when no firmware/data-sci/CLI signal is present.
+
+   When generating `TESTING.md`, copy the matching template from
+   `.opencode/templates/testing/<domain>.md` (installed alongside
+   the wizard) and substitute the `<...>` placeholders with the
+   project's detected commands + paths. Don't write a TESTING.md
+   from scratch when the template covers the testing-pyramid /
+   mocking-rules / capability-floor sections — those are
+   cross-project invariants, not project-specific content.
 
 3. **Permissions strictness.** loose (auto-allow most tools) / moderate /
    strict (ask on every edit). Default: moderate.

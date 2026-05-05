@@ -73,6 +73,10 @@ REQUIRED_SOURCES=(
   "skills/update-wizard/SKILL.md"
   "skills/feedback/SKILL.md"
   "skills/cross-model-review/SKILL.md"
+  "templates/testing/firmware.md"
+  "templates/testing/data-science.md"
+  "templates/testing/cli.md"
+  "templates/testing/web.md"
 )
 
 for f in "${REQUIRED_SOURCES[@]}"; do
@@ -99,6 +103,10 @@ declare_target() {
     "skills/update-wizard/SKILL.md") echo ".opencode/skills/update-wizard/SKILL.md" ;;
     "skills/feedback/SKILL.md") echo ".opencode/skills/feedback/SKILL.md" ;;
     "skills/cross-model-review/SKILL.md") echo ".opencode/skills/cross-model-review/SKILL.md" ;;
+    "templates/testing/firmware.md") echo ".opencode/templates/testing/firmware.md" ;;
+    "templates/testing/data-science.md") echo ".opencode/templates/testing/data-science.md" ;;
+    "templates/testing/cli.md") echo ".opencode/templates/testing/cli.md" ;;
+    "templates/testing/web.md") echo ".opencode/templates/testing/web.md" ;;
     *) echo "$1" ;;
   esac
 }

@@ -2,6 +2,44 @@
 
 All notable changes to opencode-sdlc-wizard.
 
+## [0.4.0] - 2026-05-04
+
+### Added — domain-adaptive TESTING.md templates
+
+The setup-wizard skill no longer assumes web/API. v0.4.0 ships four
+domain-specific TESTING.md templates that the skill picks based on
+repo signals:
+
+- **firmware**: HIL / SIL / config-validate / unit pyramid; device
+  matrix doc; mocking rules forbid mocked HIL
+- **data-science**: model-eval / pipeline-integration / data-validation
+  / unit pyramid; notebook reproducibility; train/serve skew check
+- **cli**: integration-heavy diamond (process spawn + behavior contract
+  + unit); argv-flag matrix; snapshot tests; OS-contract mocking rules
+- **web** (default): integration-heavy diamond (E2E / integration /
+  unit); API contract tests for every endpoint; real-DB mocking rules
+
+Templates live at `templates/testing/<domain>.md` in the repo and
+install at `.opencode/templates/<domain>.md` in target repos. The
+`setup-wizard` skill detects the domain from concrete signals
+(Makefile flash targets / `.ipynb` / `bin` package field / fallback)
+and copies the matching template, substituting `<...>` placeholders
+with the project's detected commands.
+
+### Tests
+
+- `tests/test-domain-templates.sh` — 26 tests: 4 templates exist, each
+  has appropriate domain markers (HIL / notebook / argv / E2E), each
+  describes a layered structure, install ships each to
+  `.opencode/templates/testing/`, setup-wizard skill mentions all 4
+  domains and references the templates directory, package.json
+  files[] includes `templates/`.
+- `tests/test-bundle-integrity.sh` — already covers skill + script
+  set; templates count via the new test suite.
+
+**Total: 164 tests, all green** (73 bundle + 11 plugin + 13 install +
+21 picker + 10 CLI + 10 cross-model-review + 26 domain-templates).
+
 ## [0.3.1] - 2026-05-04
 
 ### Added — `cross-model-review` skill (OSS-tier reviewer)

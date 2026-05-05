@@ -36,15 +36,26 @@ Live E2E pending: needs a configured OSS provider (Groq free tier,
 local Ollama 30B+ model, or Together/OpenRouter key). Stub tests cover
 the script logic; live E2E proves the wiring against a real reviewer.
 
-## v0.4.0 candidate — domain-adaptive expansion
+## v0.4.0 — domain-adaptive TESTING.md templates — shipped 2026-05-04
 
-Status: speculative. Triggered by real demand.
+- ✅ 4 templates: firmware / data-science / cli / web
+- ✅ Setup-wizard skill detects domain from concrete signals
+- ✅ Templates ship at `.opencode/templates/testing/<domain>.md`
+- ✅ 26 tests in `test-domain-templates.sh` (164 total across 7 suites)
 
-The wizard currently treats `setup-wizard` as web-API-default. Domain
-detection in the parent (firmware / data-science / CLI / web)
-applies here too. If `npm i opencode-sdlc-wizard` users start landing
-on firmware or data-science repos, surface domain-specific TESTING.md
-templates the way the parent does.
+## What's next (v0.5.0+ candidates)
+
+These are unprioritized — surface real demand to bid them up:
+
+- **`update-wizard` skill enhancement**: drift detection across
+  installed bundles (new feature in upstream → user nudge).
+- **Codex-style structured handoff/response artifacts**: ship JSON
+  schemas for `.reviews/handoff.json` + `.reviews/response.json` so
+  cross-model reviews have explicit contracts.
+- **Mixed-mode skill**: setup-wizard could pin a coder model + a
+  reviewer model in one config (today they're picked separately).
+- **Stale-skill drift test**: catch helper skills referencing
+  removed/renamed scripts at install time.
 
 ## Phase B — backend matrix proof
 

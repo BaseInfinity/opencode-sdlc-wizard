@@ -1,6 +1,6 @@
 {
   "name": "opencode-sdlc-wizard",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "SDLC enforcement for OpenCode CLI — privacy-first, any-backend portability with a four-tier backend picker plus an OSS-tier cross-model-review skill so the full SDLC loop can run with zero Anthropic+OpenAI lock-in. Install with `npx opencode-sdlc-wizard init`. Sibling of agentic-sdlc-wizard and codex-sdlc-wizard.",
   "bin": {
     "opencode-sdlc-wizard": "cli/bin/opencode-sdlc-wizard.js"
@@ -16,10 +16,11 @@
     "cli/",
     "skills/",
     "hooks/",
-    "scripts/"
+    "scripts/",
+    "templates/"
   ],
   "scripts": {
-    "test": "bash tests/test-bundle-integrity.sh && bash tests/test-plugin-shim.sh && bash tests/test-install.sh && bash tests/test-backend-picker.sh && bash tests/test-cli.sh && bash tests/test-cross-model-review.sh"
+    "test": "bash tests/test-bundle-integrity.sh && bash tests/test-plugin-shim.sh && bash tests/test-install.sh && bash tests/test-backend-picker.sh && bash tests/test-cli.sh && bash tests/test-cross-model-review.sh && bash tests/test-domain-templates.sh"
   },
   "keywords": [
     "opencode",
