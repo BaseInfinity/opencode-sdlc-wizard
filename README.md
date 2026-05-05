@@ -1,8 +1,9 @@
 # OpenCode SDLC Wizard
 
-> **Status: v0.4.0 (domain-adaptive TESTING.md + OSS-tier reviewer +
-> npx CLI + backend picker) — 2026-05-04.** Install with
-> `npx opencode-sdlc-wizard init`. Full SDLC loop is any-backend on
+> **Status: v0.5.0 (check subcommand + drift detection + domain
+> TESTING.md + OSS-tier reviewer + backend picker) — 2026-05-05.**
+> Install with `npx opencode-sdlc-wizard init`, check upstream with
+> `npx opencode-sdlc-wizard check`. Full SDLC loop is any-backend on
 > both coder AND reviewer (zero Anthropic+OpenAI lock-in possible);
 > setup-wizard adapts TESTING.md to firmware / data-science / CLI /
 > web automatically.

@@ -43,19 +43,32 @@ the script logic; live E2E proves the wiring against a real reviewer.
 - ✅ Templates ship at `.opencode/templates/testing/<domain>.md`
 - ✅ 26 tests in `test-domain-templates.sh` (164 total across 7 suites)
 
-## What's next (v0.5.0+ candidates)
+## v0.5.0 — `check` subcommand + bundle-drift extension — shipped 2026-05-05
 
-These are unprioritized — surface real demand to bid them up:
+- ✅ `npx opencode-sdlc-wizard check [--json] [--target-dir]` — symmetric
+  to `init`; rc=0 (current) / rc=1 (behind) / rc=2 (not installed)
+- ✅ `scripts/check-updates.sh` — backs the CLI; also installable at
+  `.opencode/scripts/` so skills + hooks can invoke directly
+- ✅ Fixed hook bug: `npm view agentic-sdlc-wizard` → `opencode-sdlc-wizard`
+- ✅ Extended drift tests to cover hooks (no parent-package executable
+  refs, mirror byte-equality)
+- ✅ 221 tests across 9 suites (was 192/8 in v0.4.1)
 
-- **`update-wizard` skill enhancement**: drift detection across
-  installed bundles (new feature in upstream → user nudge).
+## v0.6.0+ candidates (unprioritized)
+
 - **Codex-style structured handoff/response artifacts**: ship JSON
   schemas for `.reviews/handoff.json` + `.reviews/response.json` so
-  cross-model reviews have explicit contracts.
+  cross-model reviews have explicit contracts. ditto v0.1.0 will
+  consume these.
 - **Mixed-mode skill**: setup-wizard could pin a coder model + a
   reviewer model in one config (today they're picked separately).
-- **Stale-skill drift test**: catch helper skills referencing
-  removed/renamed scripts at install time.
+- **Auto-nudge integration**: instructions-loaded-check hook calls
+  the new check-updates.sh + surfaces a one-line nudge when behind
+  (currently the hook duplicates the version-check logic; could
+  simplify).
+- **OPENCODE_SDLC_WIZARD.md master doc**: equivalent of parent's
+  CLAUDE_CODE_SDLC_WIZARD.md so setup-wizard skill has a canonical
+  place to point users at.
 
 ## Phase B — backend matrix proof
 

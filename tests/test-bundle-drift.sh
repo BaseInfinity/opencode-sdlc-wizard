@@ -156,7 +156,40 @@ for d in "$REPO_ROOT"/skills/*/; do
   fi
 done
 
-# T9: skill dir name == frontmatter name (already covered by
+# T9: hooks must not reference parent-wizard npm packages (caught a
+# real bug in v0.4.1 — `npm view agentic-sdlc-wizard version` was
+# pointing the version-staleness nudge at the wrong wizard, so users
+# of opencode-sdlc-wizard would see wrong-package upgrade prompts).
+# Comments referencing the parent are OK (informational), so we limit
+# this check to lines that look like an EXECUTABLE reference: an
+# npm/git/curl/install command line.
+for hook in "$REPO_ROOT"/.opencode/hooks/*.sh "$REPO_ROOT"/hooks/*.sh; do
+  [ -f "$hook" ] || continue
+  base="$(basename "$hook")"
+  parent_dir="$(dirname "$hook" | xargs basename)/"
+  # Lines that EXECUTE something against the parent's package or repo
+  bad=$(grep -E "^[[:space:]]*[^#].*((npm[[:space:]]+(view|install)[[:space:]]+(agentic|claude)-sdlc-wizard)|(BaseInfinity/(claude|agentic)-sdlc-wizard)|(claude-sdlc-wizard\.git))" "$hook" 2>/dev/null || true)
+  if [ -z "$bad" ]; then
+    pass "${parent_dir}${base}: no executable refs to parent wizard packages"
+  else
+    fail "${parent_dir}${base}: executable parent-wizard ref → $(echo "$bad" | head -1)"
+  fi
+done
+
+# T10: hooks dual-location no-drift — every .opencode/hooks/<f> must
+# byte-match hooks/<f>. Already covered by test-bundle-integrity but
+# included here as defense-in-depth since drift between mirrors is a
+# subtle silent failure.
+for h in _find-sdlc-root.sh sdlc-prompt-check.sh tdd-pretool-check.sh \
+         instructions-loaded-check.sh model-effort-check.sh precompact-seam-check.sh; do
+  if cmp -s "$REPO_ROOT/.opencode/hooks/$h" "$REPO_ROOT/hooks/$h" 2>/dev/null; then
+    pass "drift-guard: hooks/$h == .opencode/hooks/$h"
+  else
+    fail "drift-guard: hooks/$h differs from .opencode/hooks/$h (mirror drift)"
+  fi
+done
+
+# T11: skill dir name == frontmatter name (already covered by
 # bundle-integrity, here as redundant guard since this is a drift class)
 for d in "$REPO_ROOT"/skills/*/; do
   [ -d "$d" ] || continue

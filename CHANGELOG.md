@@ -2,6 +2,64 @@
 
 All notable changes to opencode-sdlc-wizard.
 
+## [0.5.0] - 2026-05-05
+
+### Added — `npx opencode-sdlc-wizard check` subcommand
+
+Symmetric companion to `init`. Answers "is this install behind upstream?"
+with an exit code that skills, hooks, and CI can consume:
+
+- `0` — current
+- `1` — behind (also prints installed + latest versions)
+- `2` — not installed (no `.opencode/.wizard-stamp`) or fetch failed
+
+```bash
+npx opencode-sdlc-wizard check                  # human-readable
+npx opencode-sdlc-wizard check --json           # {installed, latest, status, target_dir}
+npx opencode-sdlc-wizard check --target-dir /p
+```
+
+Backed by `scripts/check-updates.sh` (also installed at
+`.opencode/scripts/check-updates.sh` so the `update-wizard` skill
+and `instructions-loaded-check.sh` hook can invoke it directly).
+
+### Fixed — hook references parent npm package
+
+`.opencode/hooks/instructions-loaded-check.sh` ran
+`npm view agentic-sdlc-wizard version` (parent's npm name) when
+checking for staleness. End users of `opencode-sdlc-wizard` would see
+"upgrade-available" nudges pointing at the wrong wizard. Switched
+to `npm view opencode-sdlc-wizard version`. Mirror at `hooks/` synced.
+
+`.opencode/hooks/sdlc-prompt-check.sh` referenced
+`CLAUDE_CODE_SDLC_WIZARD.md` in a comment; clarified that the hook is
+Claude-Code-flavored and the OpenCode runtime has no
+`UserPromptSubmit` analog so the fire-log is informational.
+
+### Added — extended bundle-drift coverage (hooks)
+
+`tests/test-bundle-drift.sh` extended with new classes:
+- T9: hooks must NOT have executable references to parent-wizard
+  npm packages (`npm view agentic-sdlc-wizard`,
+  `npm install claude-sdlc-wizard`, etc.). Comments referencing the
+  parent are OK (informational).
+- T10: hook dual-location no-drift (every `.opencode/hooks/<f>` must
+  byte-match `hooks/<f>`).
+
+Test count grew from 28 → 47 in `test-bundle-drift.sh`.
+
+### Tests
+
+- `tests/test-check-cli.sh` — 10 tests: script existence + bash syntax,
+  --help mentions stamp/installed/upstream, missing stamp → rc=2,
+  current → rc=0, behind → rc=1, --json shape, CLI passthrough,
+  --json passthrough, --help mentions both init and check.
+- `tests/test-bundle-drift.sh` extended with hook checks (28 → 47).
+
+**Total: 221 tests across 9 suites** (73 bundle + 11 plugin +
+13 install + 21 picker + 10 CLI + 10 cross-model-review +
+26 domain-templates + 47 bundle-drift + 10 check-cli).
+
 ## [0.4.1] - 2026-05-05
 
 ### Fixed — bundle-drift test caught + fixed real reference bug

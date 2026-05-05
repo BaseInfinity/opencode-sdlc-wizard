@@ -68,6 +68,7 @@ REQUIRED_SOURCES=(
   "scripts/detect-backends.sh"
   "scripts/configure-backend.sh"
   "scripts/cross-model-review.sh"
+  "scripts/check-updates.sh"
   "skills/sdlc/SKILL.md"
   "skills/setup-wizard/SKILL.md"
   "skills/update-wizard/SKILL.md"
@@ -98,6 +99,7 @@ declare_target() {
     "scripts/detect-backends.sh") echo ".opencode/scripts/detect-backends.sh" ;;
     "scripts/configure-backend.sh") echo ".opencode/scripts/configure-backend.sh" ;;
     "scripts/cross-model-review.sh") echo ".opencode/scripts/cross-model-review.sh" ;;
+    "scripts/check-updates.sh") echo ".opencode/scripts/check-updates.sh" ;;
     "skills/sdlc/SKILL.md") echo ".opencode/skills/sdlc/SKILL.md" ;;
     "skills/setup-wizard/SKILL.md") echo ".opencode/skills/setup-wizard/SKILL.md" ;;
     "skills/update-wizard/SKILL.md") echo ".opencode/skills/update-wizard/SKILL.md" ;;

@@ -12,12 +12,13 @@ source "$HOOK_DIR/_find-sdlc-root.sh"
 # plugin paths even when the script is sourced or invoked via aliases.
 dedupe_plugin_or_project "${BASH_SOURCE[0]}" || exit 0
 
-# Roadmap #224: opt-in fires-once instrumentation. CC 2.1.118 shipped a fix for
-# prompt hooks double-firing when a verifier subagent itself made tool calls.
-# When SDLC_HOOK_FIRE_LOG is set, append one tab-separated record per real
-# invocation (post-dedupe). Maintainer can compare line count against prompt
-# count to verify the CC fix in real sessions. See CLAUDE_CODE_SDLC_WIZARD.md →
-# "Verifying Prompt-Hook-Fires-Once" for the procedure.
+# Roadmap #224 (parent wizard): opt-in fires-once instrumentation. CC 2.1.118
+# shipped a fix for prompt hooks double-firing when a verifier subagent itself
+# made tool calls. When SDLC_HOOK_FIRE_LOG is set, append one tab-separated
+# record per real invocation (post-dedupe). Maintainer can compare line count
+# against prompt count to verify the CC fix in real sessions. (This hook is
+# Claude-Code-flavored; OpenCode has no UserPromptSubmit analog so the fire-log
+# is informational under OpenCode runs.)
 if [ -n "${SDLC_HOOK_FIRE_LOG:-}" ]; then
     {
         printf '%s\t%s\tsdlc-prompt-check\n' "$(date +%s)" "$$" >> "$SDLC_HOOK_FIRE_LOG"

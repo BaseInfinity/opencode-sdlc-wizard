@@ -96,7 +96,7 @@ if [ -f "$SDLC_MD" ]; then
 
         # Fetch from npm if cache miss / stale / malformed / poisoned
         if [ -z "$LATEST_VERSION" ] && command -v npm > /dev/null 2>&1; then
-            NPM_RESULT=$(npm view agentic-sdlc-wizard version 2>/dev/null)
+            NPM_RESULT=$(npm view opencode-sdlc-wizard version 2>/dev/null)
             NPM_RC=$?
             if [ "$NPM_RC" -ne 0 ] || ! [[ "$NPM_RESULT" =~ $SEMVER_RE ]]; then
                 NPM_FAILED=1
@@ -111,7 +111,7 @@ if [ -f "$SDLC_MD" ]; then
         # this, the version-check block produces no output and the user has
         # no way to know the staleness nudge is broken.
         if [ -z "$LATEST_VERSION" ] && [ "$NPM_FAILED" -eq 1 ]; then
-            echo "npm view failed — version check unavailable (run 'npm view agentic-sdlc-wizard version' to debug)"
+            echo "npm view failed — version check unavailable (run 'npm view opencode-sdlc-wizard version' to debug)"
         fi
 
         # #254 Bug 2: only nudge when installed < latest (semver direction).

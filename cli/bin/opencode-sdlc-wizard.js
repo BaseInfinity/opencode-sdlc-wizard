@@ -11,11 +11,16 @@
 //
 // Subcommands:
 //   init [options]        Install the wizard into a target directory
+//   check [options]       Check whether the installed wizard is up-to-date
 //
 // Init options pass through to install.sh:
 //   --target-dir PATH     Default: cwd
 //   --force               Overwrite existing customizations (default: keep)
 //   --dry-run             Preview changes without writing
+//
+// Check options pass through to check-updates.sh:
+//   --target-dir PATH     Default: cwd
+//   --json                Machine-readable JSON output
 //
 // Top-level flags:
 //   --help, -h            Show this help
@@ -28,6 +33,7 @@ const { spawnSync } = require('node:child_process');
 const repoRoot = path.resolve(__dirname, '..', '..');
 const pkg = JSON.parse(fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf8'));
 const installScript = path.join(repoRoot, 'install.sh');
+const checkScript = path.join(repoRoot, 'scripts', 'check-updates.sh');
 
 const args = process.argv.slice(2);
 
@@ -36,6 +42,7 @@ function printHelp() {
 
 Usage:
   npx opencode-sdlc-wizard init [options]    Install wizard into a target directory
+  npx opencode-sdlc-wizard check [options]   Check whether the installed wizard is up-to-date
   npx opencode-sdlc-wizard --help            Show this help
   npx opencode-sdlc-wizard --version         Show version
 
@@ -43,6 +50,11 @@ init options (passed through to install.sh):
   --target-dir PATH    Directory to install into (default: cwd)
   --force              Overwrite existing customizations
   --dry-run            Preview changes; do not write
+
+check options (passed through to check-updates.sh):
+  --target-dir PATH    Directory to check (default: cwd)
+  --json               Machine-readable JSON output
+                       (exit 0 = current, 1 = behind, 2 = not installed)
 
 After install:
   - AGENTS.md auto-loads on next OpenCode session
@@ -71,6 +83,23 @@ const subcommand = args.find((a) => !a.startsWith('-'));
 if (!subcommand) {
   printHelp();
   process.exit(0);
+}
+
+if (subcommand === 'check') {
+  // Pass remaining args (everything except the leading 'check') through
+  // to scripts/check-updates.sh. Same env passes — including
+  // CHECK_UPDATES_LATEST_OVERRIDE for tests.
+  const checkArgs = args.filter((a, i) => !(a === 'check' && args.indexOf('check') === i));
+  const result = spawnSync('bash', [checkScript, ...checkArgs], {
+    stdio: 'inherit',
+    cwd: process.cwd(),
+    env: process.env,
+  });
+  if (result.error) {
+    process.stderr.write(`Failed to run check-updates.sh: ${result.error.message}\n`);
+    process.exit(2);
+  }
+  process.exit(result.status === null ? 1 : result.status);
 }
 
 if (subcommand !== 'init') {
