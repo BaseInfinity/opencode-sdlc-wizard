@@ -1,12 +1,12 @@
 # OpenCode SDLC Wizard
 
-> **Status: v0.5.0 (check subcommand + drift detection + domain
-> TESTING.md + OSS-tier reviewer + backend picker) — 2026-05-05.**
+> **Status: v0.6.0 (full template set + check subcommand + drift
+> detection + OSS-tier reviewer + backend picker) — 2026-05-05.**
 > Install with `npx opencode-sdlc-wizard init`, check upstream with
 > `npx opencode-sdlc-wizard check`. Full SDLC loop is any-backend on
 > both coder AND reviewer (zero Anthropic+OpenAI lock-in possible);
-> setup-wizard adapts TESTING.md to firmware / data-science / CLI /
-> web automatically.
+> setup-wizard ships SDLC.md + ARCHITECTURE.md + 4 domain-specific
+> TESTING.md templates so consumers don't reinvent.
 > Phase B (backend matrix proof) and Phase C (hardware scout) deferred to
 > follow-up releases. See [`HANDOFF.md`](HANDOFF.md) for architecture
 > decisions, [`PRIVACY.md`](PRIVACY.md) for the tier model, and

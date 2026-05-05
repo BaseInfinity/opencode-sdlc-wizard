@@ -78,6 +78,8 @@ REQUIRED_SOURCES=(
   "templates/testing/data-science.md"
   "templates/testing/cli.md"
   "templates/testing/web.md"
+  "templates/sdlc.md"
+  "templates/architecture.md"
 )
 
 for f in "${REQUIRED_SOURCES[@]}"; do
@@ -109,6 +111,8 @@ declare_target() {
     "templates/testing/data-science.md") echo ".opencode/templates/testing/data-science.md" ;;
     "templates/testing/cli.md") echo ".opencode/templates/testing/cli.md" ;;
     "templates/testing/web.md") echo ".opencode/templates/testing/web.md" ;;
+    "templates/sdlc.md") echo ".opencode/templates/sdlc.md" ;;
+    "templates/architecture.md") echo ".opencode/templates/architecture.md" ;;
     *) echo "$1" ;;
   esac
 }

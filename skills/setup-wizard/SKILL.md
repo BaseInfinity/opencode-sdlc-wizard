@@ -129,9 +129,15 @@ Based on Step 1 + 2 + 3 answers, generate or update:
 - **AGENTS.md** at repo root with SDLC Baseline + skill catalog +
   domain-specific reminders. If AGENTS.md exists, surface a diff and
   let the user accept / reject per-section.
-- **SDLC.md** with the wizard version stamp + recommended config table.
-- **TESTING.md** with domain-appropriate testing diamond layers.
-- **ARCHITECTURE.md** with project structure + deployment targets.
+- **SDLC.md** — copy from `.opencode/templates/sdlc.md` and substitute
+  the `<...>` placeholders (test/lint/build commands, domain, version
+  stamp). Includes the SDLC baseline + workflow phases + confidence
+  levels + cross-cutting rules.
+- **TESTING.md** — copy from `.opencode/templates/testing/<domain>.md`
+  (firmware / data-science / cli / web) per Step 1 + 3 detection.
+- **ARCHITECTURE.md** — copy from `.opencode/templates/architecture.md`
+  with project-specific component table, environments, deployment,
+  and the technical-decisions log seeded with the first entry.
 - **`opencode.json`** — already written in Step 3 if the user picked a
   backend. Otherwise, leave alone.
 

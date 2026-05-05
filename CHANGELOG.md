@@ -2,6 +2,42 @@
 
 All notable changes to opencode-sdlc-wizard.
 
+## [0.6.0] - 2026-05-05
+
+### Added — `SDLC.md` and `ARCHITECTURE.md` templates
+
+Closes the doc-template gap. v0.4.0 shipped four `TESTING.md` domain
+templates; setup-wizard skill referenced `SDLC.md` and `ARCHITECTURE.md`
+generation but had no template, so each consumer reinvented the wheel.
+
+**`templates/sdlc.md`** — SDLC baseline (plan→TDD→self-review→cross-
+model-review), confidence levels (HIGH / MEDIUM / LOW), commands
+table, cross-cutting rules. References both the codex flow and the
+v0.3.1 OSS-tier `cross-model-review` skill so consumers know they
+have a vendor-neutral path. Includes the `<!-- SDLC Wizard Version
+-->` metadata comment so `update-wizard` skill can detect drift.
+
+**`templates/architecture.md`** — System overview / components /
+environments / deployment / decisions log. Seeds the decisions log
+with one example entry (the `Bun.spawnSync` vs `execFile` decision
+from v0.2.0 — illustrates the format and gives consumers a real
+reference).
+
+Both install at `.opencode/templates/` so the setup-wizard skill
+copies them with project-specific substitutions during bootstrap.
+
+### Tests
+
+- `tests/test-doc-templates.sh` — 17 tests: templates exist, contain
+  load-bearing sections (Plan/TDD/self-review/Confidence/version-stamp
+  for SDLC.md; overview/Environments/decisions for ARCHITECTURE.md),
+  SDLC.md invokes `skill({ name: "sdlc" })`, install delivers both
+  to `.opencode/templates/`, setup-wizard skill references both
+  template paths.
+
+**Total: 238 tests across 10 suites** (73 + 11 + 13 + 21 + 10 + 10 +
+26 + 47 + 10 + 17).
+
 ## [0.5.0] - 2026-05-05
 
 ### Added — `npx opencode-sdlc-wizard check` subcommand

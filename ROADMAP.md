@@ -54,21 +54,30 @@ the script logic; live E2E proves the wiring against a real reviewer.
   refs, mirror byte-equality)
 - ✅ 221 tests across 9 suites (was 192/8 in v0.4.1)
 
-## v0.6.0+ candidates (unprioritized)
+## v0.6.0 — `SDLC.md` + `ARCHITECTURE.md` templates — shipped 2026-05-05
 
-- **Codex-style structured handoff/response artifacts**: ship JSON
-  schemas for `.reviews/handoff.json` + `.reviews/response.json` so
-  cross-model reviews have explicit contracts. ditto v0.1.0 will
-  consume these.
+- ✅ `templates/sdlc.md` — SDLC baseline + workflow phases + confidence
+  levels + cross-cutting rules; references both codex + cross-model-review
+- ✅ `templates/architecture.md` — overview / components / environments /
+  deployment / decisions log
+- ✅ install delivers both at `.opencode/templates/`
+- ✅ setup-wizard skill references both templates
+- ✅ 17 tests in `test-doc-templates.sh` (238 total across 10 suites)
+
+## v0.7.0+ candidates (unprioritized)
+
+- **JSON schemas for `.reviews/handoff.json` + `response.json`**: codify
+  the structures we've been hand-writing all session. Lets ditto v0.1.0
+  + cross-model-review consume them safely. Tests assert any new review
+  artifact validates against the schema.
 - **Mixed-mode skill**: setup-wizard could pin a coder model + a
   reviewer model in one config (today they're picked separately).
-- **Auto-nudge integration**: instructions-loaded-check hook calls
-  the new check-updates.sh + surfaces a one-line nudge when behind
-  (currently the hook duplicates the version-check logic; could
-  simplify).
+- **Auto-nudge integration**: `instructions-loaded-check.sh` hook
+  delegates to `check-updates.sh` instead of duplicating the version-
+  check logic. Net: one source of truth, fewer drift opportunities.
 - **OPENCODE_SDLC_WIZARD.md master doc**: equivalent of parent's
-  CLAUDE_CODE_SDLC_WIZARD.md so setup-wizard skill has a canonical
-  place to point users at.
+  4506-line CLAUDE_CODE_SDLC_WIZARD.md. Heavier lift; defer until
+  consumer feedback says it's needed.
 
 ## Phase B — backend matrix proof
 
