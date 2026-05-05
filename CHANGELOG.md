@@ -2,6 +2,88 @@
 
 All notable changes to opencode-sdlc-wizard.
 
+## [0.8.0] - 2026-05-05
+
+### Added — free-tier-first cascade + 5 new providers + cost ladder doc
+
+The wizard's privacy-first cascade has always recognized that local
+beats hosted beats proprietary on data sovereignty. v0.8.0 adds the
+orthogonal axis: **cost**. New `--free-tier-first` flag on
+`detect-backends.sh` biases recommendations toward providers with
+generous free tiers (NVIDIA NIM credits, Cerebras free, Groq free
+daily, Google AI Studio 1500 req/day) before paid hosted/proprietary.
+Local tier still wins both cascades — it's both privacy-max AND free.
+
+**Five new providers** in detector + configurator:
+
+- **Cerebras** (`hosted_oss`) — fastest hosted inference (~2000 tok/s
+  on Llama 3.3 70B), free tier resets daily. `CEREBRAS_API_KEY`.
+- **DeepSeek direct** (`hosted_oss`) — cheapest path to DeepSeek-V3.1
+  / R1 (~$0.27/M in vs ~$0.50 via OpenRouter). `DEEPSEEK_API_KEY`.
+- **NVIDIA NIM** (`hosted_oss`) — generous free credits at
+  build.nvidia.com, hosts most OSS models. Accepts either
+  `NVIDIA_API_KEY` or `NIM_API_KEY`.
+- **Google AI Studio** (`proprietary` — Gemini is closed weights) —
+  1M-context Gemini 2.0 Flash with 1500 req/day free quota. Accepts
+  `GOOGLE_API_KEY` or `GEMINI_API_KEY`.
+- **MLX** (`private_local`) — Apple Silicon native inference,
+  fastest local on M-series Macs. `mlx_lm.server` defaults to
+  127.0.0.1:8080.
+
+**`docs/cost-ladder.md`** — concrete budget map. $0/mo (free tiers
+only), $0/mo local-only (hardware capex), $20/mo (one premium sub +
+free for the rest), $200/mo (multi-agent CI loops). Per-job picker
+table — routine fix vs long-context refactor vs security audit vs CI
+gating each have a different right answer. Ships in the npm tarball
+via `files[]` "docs/" addition.
+
+### Changed
+
+- `detect-backends.sh` JSON shape grew: `private_local.mlx`,
+  `hosted_oss.{cerebras,deepseek,nvidia_nim}`,
+  `proprietary.google_aistudio`. Existing fields unchanged
+  (forward-compatible — new keys won't break old consumers).
+- `configure-backend.sh` PROVIDER_ALIASES gained
+  `cerebras→cerebras`, `deepseek→deepseek`, `nvidia_nim→nvidia`,
+  `google_aistudio→google`, `gemini→google`, `mlx→mlx`. Each has a
+  matching fragment that emits the right `baseURL` + `apiKey` env
+  reference + custom-provider `models: { [model]: {} }` block (so
+  `opencode run` resolves the pin without ProviderModelNotFoundError).
+- `--free-tier-first` flag on `detect-backends.sh` (or
+  `DETECT_FREE_TIER_FIRST=1` env) reorders recommendation cascade to
+  prefer free providers in the hosted bucket.
+- README banner bumped + cost-ladder.md cross-link added.
+- `package.json` `files[]` adds `docs/` so `cost-ladder.md` ships in
+  the npm tarball.
+
+### Tests
+
+- `tests/test-backend-picker.sh` 21 → 29 tests: detector picks up
+  cerebras / deepseek / nvidia_nim / google_aistudio via env;
+  `--free-tier-first` changes cascade ordering; configure-backend
+  emits correct fragments for each new provider (Cerebras + DeepSeek +
+  NVIDIA NIM + Google AI Studio + MLX); `nvidia_nim` and
+  `google_aistudio` aliases map to canonical `nvidia` / `google`
+  provider IDs.
+- `tests/test-doc-templates.sh` 17 → 24 tests: cost-ladder.md exists +
+  has the load-bearing sections ($0/mo, $20/mo, $200/mo, capability
+  floor, hybrid pattern); `package.json files[]` includes `docs/`.
+
+**Total: 285 tests across 11 suites** (73 + 11 + 13 + 29 + 10 + 10 +
+26 + 51 + 10 + 24 + 28).
+
+### Why this matters
+
+Two complaints surface most often when users evaluate the wizard:
+(1) "is it actually OSS-only or can I use it with Claude/GPT too?"
+and (2) "what does this actually cost to run?" v0.7.0 punted on (2);
+v0.8.0 makes the answer concrete with the cost ladder doc + the
+free-tier-first cascade. The wizard is **any-backend by design** —
+the OSS tier is a differentiator vs the Claude/Codex siblings (those
+lock you in), not a requirement. Hybrid coder/reviewer (ceiling
+model coder + free-tier reviewer) is the dominant pattern for cost
+optimization without losing rigor.
+
 ## [0.7.0] - 2026-05-05
 
 ### Added — JSON Schemas for review artifacts + zero-dep validator

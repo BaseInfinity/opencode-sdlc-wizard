@@ -423,6 +423,151 @@ console.log('ok');
   fi
 fi
 
+# --- T21: detector picks up the new free-tier providers via env
+if [ -x "$DETECT" ]; then
+  out_json="$(env -i PATH="$PATH" HOME="$HOME" \
+    CEREBRAS_API_KEY=k DEEPSEEK_API_KEY=k NVIDIA_API_KEY=k GEMINI_API_KEY=k \
+    "$DETECT" 2>/dev/null || true)"
+  ok="$(printf '%s' "$out_json" | node -e "
+let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{
+  try{const j=JSON.parse(d);
+    if(j.hosted_oss.cerebras.key_set!==true)return console.log('cerebras-fail');
+    if(j.hosted_oss.deepseek.key_set!==true)return console.log('deepseek-fail');
+    if(j.hosted_oss.nvidia_nim.key_set!==true)return console.log('nvidia-fail');
+    if(j.proprietary.google_aistudio.key_set!==true)return console.log('google-fail');
+    console.log('ok');
+  }catch(e){console.log('parse-fail:'+e.message)}
+})" 2>/dev/null || echo 'failed')"
+  if [ "$ok" = "ok" ]; then
+    pass "detect-backends picks up cerebras/deepseek/nvidia_nim/google_aistudio via env"
+  else
+    fail "v0.8.0 provider detection: $ok"
+  fi
+fi
+
+# --- T22: --free-tier-first flag biases recommendation cascade
+# When ONLY a hosted-OSS free-tier key + a paid hosted_oss key are set, free-tier-first
+# should prefer the free one (Cerebras) over the paid one (Together).
+if [ -x "$DETECT" ]; then
+  rec_default="$(env -i PATH="$PATH" HOME="$HOME" \
+    CEREBRAS_API_KEY=k TOGETHER_API_KEY=k \
+    "$DETECT" 2>/dev/null | grep -o '"recommendation":[[:space:]]*"[^"]*"' | head -1)"
+  rec_free="$(env -i PATH="$PATH" HOME="$HOME" \
+    CEREBRAS_API_KEY=k TOGETHER_API_KEY=k \
+    "$DETECT" --free-tier-first 2>/dev/null | grep -o '"recommendation":[[:space:]]*"[^"]*"' | head -1)"
+  # Default: Together comes first in privacy-first cascade
+  # Free-tier-first: Cerebras comes first
+  # Note: this test is meaningful only when no local backend is on PATH.
+  # On dev machines with LM Studio cache or Ollama installed, both will recommend
+  # the local tier, which is fine behavior (local IS free + private).
+  if echo "$rec_default" | grep -q 'private_local\|hosted_oss/together' \
+     && echo "$rec_free" | grep -qE 'private_local|hosted_oss/cerebras|hosted_oss/nvidia'; then
+    pass "detect-backends --free-tier-first changes cascade ordering"
+  else
+    fail "free-tier-first cascade unexpected: default=$rec_default free=$rec_free"
+  fi
+fi
+
+# --- T23: configure-backend writes a Cerebras config with right baseURL + apiKey
+if [ -x "$CONFIG" ]; then
+  T="$TMP_ROOT/t23"; mkdir -p "$T"
+  (cd "$T" && "$CONFIG" --tier hosted_oss --provider cerebras --model "llama-3.3-70b" >/dev/null 2>&1) || true
+  ok="$(node -e "
+const j=require('$T/opencode.json');
+if(j.model!=='cerebras/llama-3.3-70b')process.exit(1);
+if(j.provider.cerebras.options.baseURL!=='https://api.cerebras.ai/v1')process.exit(2);
+if(j.provider.cerebras.options.apiKey!=='{env:CEREBRAS_API_KEY}')process.exit(3);
+if(!j.provider.cerebras.models||!j.provider.cerebras.models['llama-3.3-70b'])process.exit(4);
+console.log('ok');
+" 2>/dev/null || echo 'failed')"
+  if [ "$ok" = "ok" ]; then
+    pass "configure-backend cerebras emits correct baseURL + apiKey + models block"
+  else
+    fail "cerebras config wrong: $ok"
+  fi
+fi
+
+# --- T24: configure-backend writes a DeepSeek-direct config
+if [ -x "$CONFIG" ]; then
+  T="$TMP_ROOT/t24"; mkdir -p "$T"
+  (cd "$T" && "$CONFIG" --tier hosted_oss --provider deepseek --model "deepseek-chat" >/dev/null 2>&1) || true
+  ok="$(node -e "
+const j=require('$T/opencode.json');
+if(j.model!=='deepseek/deepseek-chat')process.exit(1);
+if(j.provider.deepseek.options.baseURL!=='https://api.deepseek.com/v1')process.exit(2);
+if(j.provider.deepseek.options.apiKey!=='{env:DEEPSEEK_API_KEY}')process.exit(3);
+console.log('ok');
+" 2>/dev/null || echo 'failed')"
+  if [ "$ok" = "ok" ]; then
+    pass "configure-backend deepseek emits correct baseURL + apiKey"
+  else
+    fail "deepseek config wrong: $ok"
+  fi
+fi
+
+# --- T25: configure-backend writes an NVIDIA NIM config (alias nvidia_nim → nvidia)
+if [ -x "$CONFIG" ]; then
+  T="$TMP_ROOT/t25"; mkdir -p "$T"
+  (cd "$T" && "$CONFIG" --tier hosted_oss --provider nvidia_nim --model "meta/llama-3.3-70b-instruct" >/dev/null 2>&1) || true
+  ok="$(node -e "
+const j=require('$T/opencode.json');
+if(!j.provider.nvidia)process.exit(1);
+if(j.model!=='nvidia/meta/llama-3.3-70b-instruct')process.exit(2);
+if(j.provider.nvidia.options.baseURL!=='https://integrate.api.nvidia.com/v1')process.exit(3);
+console.log('ok');
+" 2>/dev/null || echo 'failed')"
+  if [ "$ok" = "ok" ]; then
+    pass "configure-backend nvidia_nim alias maps to canonical 'nvidia' provider id"
+  else
+    fail "nvidia_nim config wrong: $ok"
+  fi
+fi
+
+# --- T26: configure-backend writes a Google AI Studio (Gemini) config
+if [ -x "$CONFIG" ]; then
+  T="$TMP_ROOT/t26"; mkdir -p "$T"
+  (cd "$T" && "$CONFIG" --tier proprietary --provider google_aistudio --model "gemini-2.0-flash" >/dev/null 2>&1) || true
+  ok="$(node -e "
+const j=require('$T/opencode.json');
+if(!j.provider.google)process.exit(1);
+if(j.model!=='google/gemini-2.0-flash')process.exit(2);
+if(!j.provider.google.options.baseURL.includes('generativelanguage.googleapis.com'))process.exit(3);
+if(j.provider.google.options.apiKey!=='{env:GOOGLE_API_KEY}')process.exit(4);
+console.log('ok');
+" 2>/dev/null || echo 'failed')"
+  if [ "$ok" = "ok" ]; then
+    pass "configure-backend google_aistudio emits Gemini config (proprietary tier)"
+  else
+    fail "google_aistudio config wrong: $ok"
+  fi
+fi
+
+# --- T27: MLX (Apple Silicon) provider — defaults baseURL to 127.0.0.1:8080
+if [ -x "$CONFIG" ]; then
+  T="$TMP_ROOT/t27"; mkdir -p "$T"
+  (cd "$T" && "$CONFIG" --tier private_local --provider mlx --model "Qwen2.5-Coder-32B-Instruct-4bit" >/dev/null 2>&1) || true
+  ok="$(node -e "
+const j=require('$T/opencode.json');
+if(j.model!=='mlx/Qwen2.5-Coder-32B-Instruct-4bit')process.exit(1);
+if(j.provider.mlx.options.baseURL!=='http://127.0.0.1:8080/v1')process.exit(2);
+console.log('ok');
+" 2>/dev/null || echo 'failed')"
+  if [ "$ok" = "ok" ]; then
+    pass "configure-backend private_local/mlx uses 127.0.0.1:8080 default"
+  else
+    fail "mlx config wrong: $ok"
+  fi
+fi
+
+# --- T28: detector --help prints the flag list
+if [ -x "$DETECT" ]; then
+  if "$DETECT" --help 2>&1 | grep -qE 'free-tier-first'; then
+    pass "detect-backends --help mentions --free-tier-first"
+  else
+    fail "detect-backends --help missing --free-tier-first"
+  fi
+fi
+
 echo ""
 echo "=== Results: $PASS passed, $FAIL failed ==="
 [ "$FAIL" -eq 0 ] || exit 1

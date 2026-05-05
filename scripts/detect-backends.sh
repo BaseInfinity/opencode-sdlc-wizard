@@ -3,10 +3,10 @@
 #
 # Output: JSON to stdout with the shape:
 # {
-#   "private_local":  { ollama, lm_studio, llama_cpp, vllm },
+#   "private_local":  { ollama, lm_studio, llama_cpp, vllm, mlx },
 #   "enterprise":     { azure_openai, aws_bedrock },
-#   "hosted_oss":     { together, groq, openrouter },
-#   "proprietary":    { anthropic, openai },
+#   "hosted_oss":     { together, groq, openrouter, cerebras, deepseek, nvidia_nim },
+#   "proprietary":    { anthropic, openai, google_aistudio },
 #   "recommendation": "<tier>/<provider>"
 # }
 #
@@ -17,8 +17,25 @@
 # privacy ranks above ceiling for this wizard's purposes.
 #
 # Pure env probe + PATH check. No live network calls. Safe in CI / sandbox.
+#
+# Flags:
+#   --free-tier-first   Bias the recommendation cascade toward providers with
+#                       generous free tiers (NVIDIA NIM, Cerebras, Groq, Google
+#                       AI Studio, OpenRouter :free) before paid hosted/proprietary.
+#                       Local tier still wins (free + private). Same effect as
+#                       env DETECT_FREE_TIER_FIRST=1.
+#   --help              Print this header and exit.
 
 set -euo pipefail
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --free-tier-first) DETECT_FREE_TIER_FIRST=1 ;;
+    -h|--help) sed -n '2,29p' "$0"; exit 0 ;;
+    *) echo "Unknown arg: $1" >&2; exit 2 ;;
+  esac
+  shift
+done
 
 # Detection helpers -----------------------------------------------------------
 
@@ -66,6 +83,14 @@ for b in llama-cli llama-server llama; do
   if command -v "$b" >/dev/null 2>&1; then P_LLAMACPP_INSTALLED="true"; break; fi
 done
 P_VLLM_INSTALLED="$(has_cmd vllm)"
+# MLX runs on Apple Silicon natively. Detection: mlx_lm.generate or mlx-lm
+# entry on PATH, or the mlx_lm Python package installed.
+P_MLX_INSTALLED="false"
+if command -v mlx_lm.generate >/dev/null 2>&1 || command -v mlx-lm >/dev/null 2>&1; then
+  P_MLX_INSTALLED="true"
+elif command -v python3 >/dev/null 2>&1 && python3 -c 'import mlx_lm' >/dev/null 2>&1; then
+  P_MLX_INSTALLED="true"
+fi
 
 # Enterprise — env-var presence
 E_AZURE_SET="$(env_set AZURE_RESOURCE_NAME)"
@@ -78,27 +103,77 @@ fi
 H_TOGETHER_SET="$(env_set TOGETHER_API_KEY)"
 H_GROQ_SET="$(env_set GROQ_API_KEY)"
 H_OPENROUTER_SET="$(env_set OPENROUTER_API_KEY)"
+H_CEREBRAS_SET="$(env_set CEREBRAS_API_KEY)"
+H_DEEPSEEK_SET="$(env_set DEEPSEEK_API_KEY)"
+# NVIDIA NIM accepts either of two env names depending on which doc you read
+H_NVIDIA_SET="false"
+if [ -n "${NVIDIA_API_KEY:-}" ] || [ -n "${NIM_API_KEY:-}" ]; then
+  H_NVIDIA_SET="true"
+fi
+# Google AI Studio accepts either GOOGLE_API_KEY or GEMINI_API_KEY
+H_GOOGLE_AISTUDIO_SET="false"
+if [ -n "${GOOGLE_API_KEY:-}" ] || [ -n "${GEMINI_API_KEY:-}" ]; then
+  H_GOOGLE_AISTUDIO_SET="true"
+fi
 
 # Proprietary — env-var presence
 PR_ANTHROPIC_SET="$(env_set ANTHROPIC_API_KEY)"
 PR_OPENAI_SET="$(env_set OPENAI_API_KEY)"
 
-# Recommendation: privacy-first cascade
-recommend() {
+# Recommendation cascade — privacy-first by default. When DETECT_FREE_TIER_FIRST=1
+# (set by configure-backend.sh's --free-tier-first), bias toward providers with
+# generous free tiers before falling through to paid hosted/proprietary. Local
+# private tier still wins both cascades since it's both privacy-max and free.
+recommend_privacy_first() {
   if [ "$P_OLLAMA_INSTALLED" = "true" ]; then echo "private_local/ollama"; return; fi
   if [ "$P_LMS_INSTALLED" = "true" ]; then echo "private_local/lm_studio"; return; fi
+  if [ "$P_MLX_INSTALLED" = "true" ]; then echo "private_local/mlx"; return; fi
   if [ "$P_LLAMACPP_INSTALLED" = "true" ]; then echo "private_local/llama_cpp"; return; fi
   if [ "$P_VLLM_INSTALLED" = "true" ]; then echo "private_local/vllm"; return; fi
   if [ "$E_AZURE_SET" = "true" ]; then echo "enterprise/azure_openai"; return; fi
   if [ "$E_BEDROCK_SET" = "true" ]; then echo "enterprise/aws_bedrock"; return; fi
   if [ "$H_TOGETHER_SET" = "true" ]; then echo "hosted_oss/together"; return; fi
   if [ "$H_GROQ_SET" = "true" ]; then echo "hosted_oss/groq"; return; fi
+  if [ "$H_CEREBRAS_SET" = "true" ]; then echo "hosted_oss/cerebras"; return; fi
+  if [ "$H_NVIDIA_SET" = "true" ]; then echo "hosted_oss/nvidia_nim"; return; fi
+  if [ "$H_DEEPSEEK_SET" = "true" ]; then echo "hosted_oss/deepseek"; return; fi
+  if [ "$H_GOOGLE_AISTUDIO_SET" = "true" ]; then echo "hosted_oss/google_aistudio"; return; fi
   if [ "$H_OPENROUTER_SET" = "true" ]; then echo "hosted_oss/openrouter"; return; fi
+  if [ "$PR_ANTHROPIC_SET" = "true" ]; then echo "proprietary/anthropic"; return; fi
+  if [ "$PR_OPENAI_SET" = "true" ]; then echo "proprietary/openai"; return; fi
+  if [ "$H_GOOGLE_AISTUDIO_SET" = "true" ]; then echo "proprietary/google_aistudio"; return; fi
+  echo "none"
+}
+
+# Free-tier-first: keep local at top (still free + private), then prefer
+# providers with generous free tiers (NIM credits, Cerebras free, Groq free
+# daily, Google AI Studio quota, OpenRouter :free models) before paid hosted
+# (Together, DeepSeek-direct) and finally paid proprietary.
+recommend_free_tier_first() {
+  if [ "$P_OLLAMA_INSTALLED" = "true" ]; then echo "private_local/ollama"; return; fi
+  if [ "$P_LMS_INSTALLED" = "true" ]; then echo "private_local/lm_studio"; return; fi
+  if [ "$P_MLX_INSTALLED" = "true" ]; then echo "private_local/mlx"; return; fi
+  if [ "$P_LLAMACPP_INSTALLED" = "true" ]; then echo "private_local/llama_cpp"; return; fi
+  if [ "$P_VLLM_INSTALLED" = "true" ]; then echo "private_local/vllm"; return; fi
+  if [ "$H_NVIDIA_SET" = "true" ]; then echo "hosted_oss/nvidia_nim"; return; fi
+  if [ "$H_CEREBRAS_SET" = "true" ]; then echo "hosted_oss/cerebras"; return; fi
+  if [ "$H_GROQ_SET" = "true" ]; then echo "hosted_oss/groq"; return; fi
+  if [ "$H_GOOGLE_AISTUDIO_SET" = "true" ]; then echo "proprietary/google_aistudio"; return; fi
+  if [ "$H_OPENROUTER_SET" = "true" ]; then echo "hosted_oss/openrouter"; return; fi
+  if [ "$H_DEEPSEEK_SET" = "true" ]; then echo "hosted_oss/deepseek"; return; fi
+  if [ "$H_TOGETHER_SET" = "true" ]; then echo "hosted_oss/together"; return; fi
+  if [ "$E_AZURE_SET" = "true" ]; then echo "enterprise/azure_openai"; return; fi
+  if [ "$E_BEDROCK_SET" = "true" ]; then echo "enterprise/aws_bedrock"; return; fi
   if [ "$PR_ANTHROPIC_SET" = "true" ]; then echo "proprietary/anthropic"; return; fi
   if [ "$PR_OPENAI_SET" = "true" ]; then echo "proprietary/openai"; return; fi
   echo "none"
 }
-RECOMMENDATION="$(recommend)"
+
+if [ "${DETECT_FREE_TIER_FIRST:-0}" = "1" ]; then
+  RECOMMENDATION="$(recommend_free_tier_first)"
+else
+  RECOMMENDATION="$(recommend_privacy_first)"
+fi
 
 # Emit JSON -------------------------------------------------------------------
 
@@ -108,20 +183,25 @@ cat <<EOF
     "ollama":    { "installed": $P_OLLAMA_INSTALLED, "models": $P_OLLAMA_MODELS },
     "lm_studio": { "installed": $P_LMS_INSTALLED },
     "llama_cpp": { "installed": $P_LLAMACPP_INSTALLED },
-    "vllm":      { "installed": $P_VLLM_INSTALLED }
+    "vllm":      { "installed": $P_VLLM_INSTALLED },
+    "mlx":       { "installed": $P_MLX_INSTALLED }
   },
   "enterprise": {
     "azure_openai": { "key_set": $E_AZURE_SET, "env": "AZURE_RESOURCE_NAME" },
     "aws_bedrock":  { "key_set": $E_BEDROCK_SET, "envs": ["AWS_ACCESS_KEY_ID","AWS_PROFILE","AWS_BEARER_TOKEN_BEDROCK"] }
   },
   "hosted_oss": {
-    "together":   { "key_set": $H_TOGETHER_SET, "env": "TOGETHER_API_KEY" },
-    "groq":       { "key_set": $H_GROQ_SET, "env": "GROQ_API_KEY" },
-    "openrouter": { "key_set": $H_OPENROUTER_SET, "env": "OPENROUTER_API_KEY" }
+    "together":   { "key_set": $H_TOGETHER_SET,   "env": "TOGETHER_API_KEY" },
+    "groq":       { "key_set": $H_GROQ_SET,       "env": "GROQ_API_KEY" },
+    "openrouter": { "key_set": $H_OPENROUTER_SET, "env": "OPENROUTER_API_KEY" },
+    "cerebras":   { "key_set": $H_CEREBRAS_SET,   "env": "CEREBRAS_API_KEY" },
+    "deepseek":   { "key_set": $H_DEEPSEEK_SET,   "env": "DEEPSEEK_API_KEY" },
+    "nvidia_nim": { "key_set": $H_NVIDIA_SET,     "envs": ["NVIDIA_API_KEY","NIM_API_KEY"] }
   },
   "proprietary": {
-    "anthropic": { "key_set": $PR_ANTHROPIC_SET, "env": "ANTHROPIC_API_KEY" },
-    "openai":    { "key_set": $PR_OPENAI_SET, "env": "OPENAI_API_KEY" }
+    "anthropic":       { "key_set": $PR_ANTHROPIC_SET,       "env": "ANTHROPIC_API_KEY" },
+    "openai":          { "key_set": $PR_OPENAI_SET,          "env": "OPENAI_API_KEY" },
+    "google_aistudio": { "key_set": $H_GOOGLE_AISTUDIO_SET,  "envs": ["GOOGLE_API_KEY","GEMINI_API_KEY"] }
   },
   "recommendation": "$RECOMMENDATION"
 }
