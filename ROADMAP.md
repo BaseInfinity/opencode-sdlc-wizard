@@ -24,26 +24,17 @@ notes.
 - ✅ 10 CLI tests in `tests/test-cli.sh` (123/123 total across 5 suites)
 - ✅ README updated to lead with `npx opencode-sdlc-wizard init`
 
-## v0.3.0 candidate — `cross-model-review` skill (OSS reviewer)
+## v0.3.1 — `cross-model-review` skill (OSS reviewer) — shipped 2026-05-04
 
-Status: planned. Target after v0.2.0 sees real consumer use.
+- ✅ `skills/cross-model-review/SKILL.md` — adaptive skill picks reviewer + runs through opencode
+- ✅ `scripts/cross-model-review.sh` — non-interactive wrapper, alias-aware
+- ✅ Provider alias resolution shared with `configure-backend.sh`
+- ✅ 10 tests via stubbed opencode (138 total across 6 suites)
+- ✅ CHANGELOG + skill recommendations documented
 
-The cross-model review SDLC step today expects Codex (OpenAI gpt-5.5).
-That re-introduces the vendor lock that v0.2.0 removed for the coder.
-Closing the loop: a `cross-model-review` skill that runs the review
-through OpenCode itself with an OSS-tier model:
-
-- **Reviewer recommendations:** DeepSeek-V3 via Together (deep reasoning,
-  ~$0.27/M input — pennies per review) or Qwen2.5-Coder-32B via Groq
-  (fastest), or local Ollama Qwen2.5-Coder-32B (true zero-egress
-  for air-gapped contexts).
-- **Skill:** reads `.reviews/handoff.json` + `.reviews/response.json`,
-  invokes `opencode run --model <chosen>` with a structured review
-  prompt, writes `.reviews/latest-review.md`. Symmetric to the codex
-  flow.
-- **Wrapper:** `scripts/cross-model-review.sh` for non-skill / CI use.
-- **PRIVACY.md addition:** the all-OSS pipeline recipe (Ollama coder +
-  Ollama reviewer = zero network egress for the entire SDLC loop).
+Live E2E pending: needs a configured OSS provider (Groq free tier,
+local Ollama 30B+ model, or Together/OpenRouter key). Stub tests cover
+the script logic; live E2E proves the wiring against a real reviewer.
 
 ## v0.4.0 candidate — domain-adaptive expansion
 

@@ -2,6 +2,57 @@
 
 All notable changes to opencode-sdlc-wizard.
 
+## [0.3.1] - 2026-05-04
+
+### Added — `cross-model-review` skill (OSS-tier reviewer)
+
+Removes the OpenAI lock from the SDLC review loop. v0.2.0 made the
+**coder** any-backend; v0.3.1 makes the **reviewer** any-backend too.
+Now the entire SDLC plan→TDD→self-review→cross-model-review loop can
+run with zero Anthropic+OpenAI dependency.
+
+**Bundled artifacts:**
+
+- `skills/cross-model-review/SKILL.md` — adaptive skill that picks an
+  OSS-tier reviewer model and runs a cross-model review through
+  OpenCode. Default suggestion: `togetherai/deepseek-ai/DeepSeek-V3`
+  for deep reasoning at ~$0.27/M input (pennies per review). Local
+  Ollama path documented for air-gapped contexts.
+- `scripts/cross-model-review.sh` — non-interactive wrapper. Reads
+  `.reviews/handoff.json` + `.reviews/response.json`, composes the
+  recheck prompt, invokes `opencode run --model <provider>/<model>`,
+  writes verdict to `.reviews/latest-review.md`. Symmetric to the
+  codex flow.
+- Provider-alias resolution shared with `configure-backend.sh`
+  (`together` → `togetherai`, `aws_bedrock` → `amazon-bedrock`, etc.)
+
+**Recommended reviewers:**
+
+| Tier | Provider | Model | Why |
+|------|----------|-------|-----|
+| `private_local` | ollama | `qwen2.5-coder:32b` | Code-tuned, zero egress |
+| `hosted_oss` | togetherai | `deepseek-ai/DeepSeek-V3` | Strongest reasoning OSS |
+| `hosted_oss` | groq | `llama-3.3-70b-versatile` | Fastest hosted, free tier |
+
+The two reviewer flows (codex + cross-model-review) produce
+structurally identical `.reviews/latest-review.md` artifacts —
+downstream consumers don't care which reviewer ran.
+
+### Tests
+
+- `tests/test-cross-model-review.sh` — 10 tests via stubbed `opencode`
+  on PATH: script exists/parses, `--help` prints usage, rejects
+  invocation without required flags, invokes opencode with correct
+  `--model <provider>/<model>` arg, writes default + `--output-path`
+  override, refuses without `.reviews/handoff.json`, alias resolution
+  (`together` → `togetherai` in arg), `--print-prompt` previews
+  without invoking opencode.
+- `tests/test-bundle-integrity.sh` extended: skill set is now 5
+  (added `cross-model-review`), scripts loop covers all 3.
+
+**Total: 138 tests, all green** (73 bundle + 11 plugin + 13 install +
+21 picker + 10 CLI + 10 cross-model-review).
+
 ## [0.3.0] - 2026-05-04
 
 ### Added — `npx opencode-sdlc-wizard init` CLI

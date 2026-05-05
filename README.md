@@ -1,9 +1,9 @@
 # OpenCode SDLC Wizard
 
-> **Status: v0.3.0 (npx CLI + privacy-first backend picker) — 2026-05-04.**
-> Install with `npx opencode-sdlc-wizard init`. Phase A port (hooks,
-> skills, AGENTS.md, install.sh) plus a four-tier backend picker that
-> defaults to the strongest data-locality guarantee available.
+> **Status: v0.3.1 (OSS-tier cross-model reviewer + npx CLI + backend
+> picker) — 2026-05-04.** Install with `npx opencode-sdlc-wizard init`.
+> Full SDLC loop now any-backend on both coder AND reviewer (zero
+> Anthropic+OpenAI lock-in possible).
 > Phase B (backend matrix proof) and Phase C (hardware scout) deferred to
 > follow-up releases. See [`HANDOFF.md`](HANDOFF.md) for architecture
 > decisions, [`PRIVACY.md`](PRIVACY.md) for the tier model, and

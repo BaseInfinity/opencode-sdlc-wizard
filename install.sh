@@ -67,10 +67,12 @@ REQUIRED_SOURCES=(
   ".opencode/hooks/precompact-seam-check.sh"
   "scripts/detect-backends.sh"
   "scripts/configure-backend.sh"
+  "scripts/cross-model-review.sh"
   "skills/sdlc/SKILL.md"
   "skills/setup-wizard/SKILL.md"
   "skills/update-wizard/SKILL.md"
   "skills/feedback/SKILL.md"
+  "skills/cross-model-review/SKILL.md"
 )
 
 for f in "${REQUIRED_SOURCES[@]}"; do
@@ -91,10 +93,12 @@ declare_target() {
     ".opencode/hooks/"*) echo "$1" ;;
     "scripts/detect-backends.sh") echo ".opencode/scripts/detect-backends.sh" ;;
     "scripts/configure-backend.sh") echo ".opencode/scripts/configure-backend.sh" ;;
+    "scripts/cross-model-review.sh") echo ".opencode/scripts/cross-model-review.sh" ;;
     "skills/sdlc/SKILL.md") echo ".opencode/skills/sdlc/SKILL.md" ;;
     "skills/setup-wizard/SKILL.md") echo ".opencode/skills/setup-wizard/SKILL.md" ;;
     "skills/update-wizard/SKILL.md") echo ".opencode/skills/update-wizard/SKILL.md" ;;
     "skills/feedback/SKILL.md") echo ".opencode/skills/feedback/SKILL.md" ;;
+    "skills/cross-model-review/SKILL.md") echo ".opencode/skills/cross-model-review/SKILL.md" ;;
     *) echo "$1" ;;
   esac
 }

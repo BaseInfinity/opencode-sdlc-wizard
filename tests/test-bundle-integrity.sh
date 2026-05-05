@@ -51,9 +51,9 @@ else
     fail ".opencode/plugins/sdlc-wizard.js missing"
 fi
 
-# 4 skills (setup/update use the -wizard suffix to match OpenCode's
-# requirement that frontmatter `name` matches the directory name)
-for sk in sdlc setup-wizard update-wizard feedback; do
+# 5 skills (setup/update use the -wizard suffix; cross-model-review
+# added in v0.3.1 alongside the OSS-reviewer alternative)
+for sk in sdlc setup-wizard update-wizard feedback cross-model-review; do
     if [ -f "$REPO_ROOT/skills/$sk/SKILL.md" ]; then
         pass "skills/$sk/SKILL.md exists"
     else
@@ -62,7 +62,7 @@ for sk in sdlc setup-wizard update-wizard feedback; do
 done
 
 # Skill frontmatter `name` MUST match directory name (OpenCode discovery rule)
-for sk in sdlc setup-wizard update-wizard feedback; do
+for sk in sdlc setup-wizard update-wizard feedback cross-model-review; do
     actual_name=$(awk '/^name:/ {print $2; exit}' "$REPO_ROOT/skills/$sk/SKILL.md" 2>/dev/null)
     if [ "$actual_name" = "$sk" ]; then
         pass "skills/$sk/SKILL.md frontmatter name matches directory ($sk)"
@@ -114,8 +114,8 @@ else
     fail "install.sh missing or not executable"
 fi
 
-# Backend picker scripts present + executable + valid bash
-for s in detect-backends.sh configure-backend.sh; do
+# Backend picker + cross-model-review scripts present + executable + valid bash
+for s in detect-backends.sh configure-backend.sh cross-model-review.sh; do
     if [ -x "$REPO_ROOT/scripts/$s" ]; then
         pass "scripts/$s present and executable"
     else
@@ -128,8 +128,8 @@ for s in detect-backends.sh configure-backend.sh; do
     fi
 done
 
-# install.sh references the picker scripts in REQUIRED_SOURCES (so they ship)
-for s in detect-backends.sh configure-backend.sh; do
+# install.sh references the scripts in REQUIRED_SOURCES (so they ship)
+for s in detect-backends.sh configure-backend.sh cross-model-review.sh; do
     if grep -q "scripts/$s" "$REPO_ROOT/install.sh"; then
         pass "install.sh REQUIRED_SOURCES includes scripts/$s"
     else
