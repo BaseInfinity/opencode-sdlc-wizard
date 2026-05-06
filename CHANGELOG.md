@@ -2,6 +2,39 @@
 
 All notable changes to opencode-sdlc-wizard.
 
+## [0.8.2] - 2026-05-05
+
+### Fixed — codex round-2 F3 follow-up (PARTIALLY-FIXED → HOLDS)
+
+Codex round-2 returned 8/10 NOT_CERTIFIED with F1/F2/F4/F5 all
+HOLDING but F3 PARTIALLY-FIXED: the round-1 fix only refreshed the
+`$0/mo` table; three more `llama-3.3-70b` Cerebras references
+remained later in `docs/cost-ladder.md` at lines 122, 157, 173.
+
+v0.8.2 finishes F3:
+
+- `cost-ladder.md:122` ($20/mo Reviewer slot) — split Cerebras + Groq
+  paths: Cerebras → `gpt-oss-120b`, Groq → `llama-3.3-70b-versatile`
+  (Groq still catalogs the Llama 3.3 model under the `-versatile`
+  suffix; Cerebras dropped it)
+- `cost-ladder.md:157` ($200/mo CI-gate slot) — same split
+- `cost-ladder.md:173` (per-job picker, "Routine fix" row) — Cerebras
+  example now `gpt-oss-120b` or `qwen-3-235b-a22b-instruct-2507`
+- `cost-ladder.md:177` (per-job picker, "CI gating" row) — added
+  parenthetical noting Groq still ships Llama 3.3 70B but Cerebras
+  doesn't — important context since both providers were lumped
+  together in the original
+
+Untouched (intentionally legitimate references):
+- Line 27: capability-floor table — generic class example
+- Line 54: Groq's `llama-3.3-70b-versatile` — actual current model
+- Lines 66, 212: calibration-history callouts about the round-1
+  catch — kept as the audit trail
+
+### Tests
+
+No test changes — doc-only fix. Suite still 289/11 green.
+
 ## [0.8.1] - 2026-05-05
 
 ### Fixed — codex round-1 cross-model review (5 findings, all addressed)
