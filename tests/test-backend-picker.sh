@@ -426,7 +426,7 @@ fi
 # --- T21: detector picks up the new free-tier providers via env
 if [ -x "$DETECT" ]; then
   out_json="$(env -i PATH="$PATH" HOME="$HOME" \
-    CEREBRAS_API_KEY=k DEEPSEEK_API_KEY=k NVIDIA_API_KEY=k GEMINI_API_KEY=k \
+    CEREBRAS_API_KEY=k DEEPSEEK_API_KEY=k NVIDIA_API_KEY=k GOOGLE_API_KEY=k \
     "$DETECT" 2>/dev/null || true)"
   ok="$(printf '%s' "$out_json" | node -e "
 let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{
@@ -565,6 +565,51 @@ if [ -x "$DETECT" ]; then
     pass "detect-backends --help mentions --free-tier-first"
   else
     fail "detect-backends --help missing --free-tier-first"
+  fi
+fi
+
+# --- T29: codex round-1 F1 regression — Google-only env emits proprietary tier
+# in BOTH cascades (was hosted_oss/google_aistudio in privacy-first @ line 140)
+if [ -x "$DETECT" ]; then
+  CLEAN_HOME="$TMP_ROOT/t29-home"; mkdir -p "$CLEAN_HOME"
+  # Strict PATH avoids picking up LM Studio / Ollama / etc. on the dev box,
+  # which would short-circuit the cascade at private_local before reaching
+  # the proprietary tier we're testing.
+  STRICT_PATH=/usr/bin:/bin
+  rec_default="$(env -i PATH="$STRICT_PATH" HOME="$CLEAN_HOME" GOOGLE_API_KEY=k \
+    "$DETECT" 2>/dev/null | grep -o '"recommendation":[[:space:]]*"[^"]*"' | head -1)"
+  rec_free="$(env -i PATH="$STRICT_PATH" HOME="$CLEAN_HOME" GOOGLE_API_KEY=k \
+    "$DETECT" --free-tier-first 2>/dev/null | grep -o '"recommendation":[[:space:]]*"[^"]*"' | head -1)"
+  if echo "$rec_default" | grep -q 'proprietary/google_aistudio' \
+     && echo "$rec_free" | grep -q 'proprietary/google_aistudio'; then
+    pass "Google-only env emits proprietary tier in BOTH cascades (F1 fix)"
+  else
+    fail "F1 regression — default=$rec_default free=$rec_free"
+  fi
+fi
+
+# --- T30: codex round-1 F2 regression — alternate env names dropped
+# NIM_API_KEY and GEMINI_API_KEY are no longer accepted; only canonical names
+# (NVIDIA_API_KEY / GOOGLE_API_KEY) trigger detection.
+if [ -x "$DETECT" ]; then
+  CLEAN_HOME="$TMP_ROOT/t30-home"; mkdir -p "$CLEAN_HOME"
+  STRICT_PATH=/usr/bin:/bin
+  out="$(env -i PATH="$STRICT_PATH" HOME="$CLEAN_HOME" NIM_API_KEY=k GEMINI_API_KEY=k \
+    "$DETECT" 2>/dev/null || true)"
+  ok="$(printf '%s' "$out" | node -e "
+let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{
+  try{const j=JSON.parse(d);
+    if(j.hosted_oss.nvidia_nim.key_set!==false)return console.log('nim-detected-from-alt');
+    if(j.proprietary.google_aistudio.key_set!==false)return console.log('gemini-detected-from-alt');
+    if(j.hosted_oss.nvidia_nim.env!=='NVIDIA_API_KEY')return console.log('nim-env-shape:'+j.hosted_oss.nvidia_nim.env);
+    if(j.proprietary.google_aistudio.env!=='GOOGLE_API_KEY')return console.log('google-env-shape:'+j.proprietary.google_aistudio.env);
+    console.log('ok');
+  }catch(e){console.log('parse-fail:'+e.message)}
+})" 2>/dev/null || echo 'failed')"
+  if [ "$ok" = "ok" ]; then
+    pass "alternate env names not honored — only canonical NVIDIA_API_KEY/GOOGLE_API_KEY (F2 fix)"
+  else
+    fail "F2 regression — $ok"
   fi
 fi
 

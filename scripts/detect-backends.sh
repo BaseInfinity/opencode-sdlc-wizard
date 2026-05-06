@@ -105,16 +105,13 @@ H_GROQ_SET="$(env_set GROQ_API_KEY)"
 H_OPENROUTER_SET="$(env_set OPENROUTER_API_KEY)"
 H_CEREBRAS_SET="$(env_set CEREBRAS_API_KEY)"
 H_DEEPSEEK_SET="$(env_set DEEPSEEK_API_KEY)"
-# NVIDIA NIM accepts either of two env names depending on which doc you read
-H_NVIDIA_SET="false"
-if [ -n "${NVIDIA_API_KEY:-}" ] || [ -n "${NIM_API_KEY:-}" ]; then
-  H_NVIDIA_SET="true"
-fi
-# Google AI Studio accepts either GOOGLE_API_KEY or GEMINI_API_KEY
-H_GOOGLE_AISTUDIO_SET="false"
-if [ -n "${GOOGLE_API_KEY:-}" ] || [ -n "${GEMINI_API_KEY:-}" ]; then
-  H_GOOGLE_AISTUDIO_SET="true"
-fi
+# NVIDIA NIM and Google AI Studio: canonical env names only. Older docs
+# referenced NIM_API_KEY / GEMINI_API_KEY but accepting alternates while
+# the configurator only emits {env:NVIDIA_API_KEY}/{env:GOOGLE_API_KEY}
+# would silently produce configs that fail auth at runtime (codex round-1
+# F2). One canonical name per provider, surfaced in the JSON output.
+H_NVIDIA_SET="$(env_set NVIDIA_API_KEY)"
+H_GOOGLE_AISTUDIO_SET="$(env_set GOOGLE_API_KEY)"
 
 # Proprietary — env-var presence
 PR_ANTHROPIC_SET="$(env_set ANTHROPIC_API_KEY)"
@@ -137,7 +134,6 @@ recommend_privacy_first() {
   if [ "$H_CEREBRAS_SET" = "true" ]; then echo "hosted_oss/cerebras"; return; fi
   if [ "$H_NVIDIA_SET" = "true" ]; then echo "hosted_oss/nvidia_nim"; return; fi
   if [ "$H_DEEPSEEK_SET" = "true" ]; then echo "hosted_oss/deepseek"; return; fi
-  if [ "$H_GOOGLE_AISTUDIO_SET" = "true" ]; then echo "hosted_oss/google_aistudio"; return; fi
   if [ "$H_OPENROUTER_SET" = "true" ]; then echo "hosted_oss/openrouter"; return; fi
   if [ "$PR_ANTHROPIC_SET" = "true" ]; then echo "proprietary/anthropic"; return; fi
   if [ "$PR_OPENAI_SET" = "true" ]; then echo "proprietary/openai"; return; fi
@@ -196,12 +192,12 @@ cat <<EOF
     "openrouter": { "key_set": $H_OPENROUTER_SET, "env": "OPENROUTER_API_KEY" },
     "cerebras":   { "key_set": $H_CEREBRAS_SET,   "env": "CEREBRAS_API_KEY" },
     "deepseek":   { "key_set": $H_DEEPSEEK_SET,   "env": "DEEPSEEK_API_KEY" },
-    "nvidia_nim": { "key_set": $H_NVIDIA_SET,     "envs": ["NVIDIA_API_KEY","NIM_API_KEY"] }
+    "nvidia_nim": { "key_set": $H_NVIDIA_SET,     "env": "NVIDIA_API_KEY" }
   },
   "proprietary": {
     "anthropic":       { "key_set": $PR_ANTHROPIC_SET,       "env": "ANTHROPIC_API_KEY" },
     "openai":          { "key_set": $PR_OPENAI_SET,          "env": "OPENAI_API_KEY" },
-    "google_aistudio": { "key_set": $H_GOOGLE_AISTUDIO_SET,  "envs": ["GOOGLE_API_KEY","GEMINI_API_KEY"] }
+    "google_aistudio": { "key_set": $H_GOOGLE_AISTUDIO_SET,  "env": "GOOGLE_API_KEY" }
   },
   "recommendation": "$RECOMMENDATION"
 }

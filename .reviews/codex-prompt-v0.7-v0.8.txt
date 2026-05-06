@@ -1,0 +1,29 @@
+You are reviewing v0.7.0 + v0.8.0 of opencode-sdlc-wizard (commits 6c5c4a2 and fb1e1ce on main). Read .reviews/handoff.json — it's the canonical handoff and it tells you the mission, success criteria, failure modes to hunt for, and review instructions. Then audit the changes in those two commits.
+
+Concretely:
+1. git log --oneline v0.6.0..HEAD to see the scope
+2. git diff v0.6.0..HEAD --stat for the file list
+3. Read each changed file end to end
+4. Per-file: confirm the change matches the handoff's success criteria. If you find anything that violates them OR matches a failure mode in the handoff, raise a finding.
+5. Hot spots flagged in the handoff:
+   - templates/schemas/{handoff,response}.schema.json — draft-07 correctness
+   - scripts/validate-review-artifact.js — does it actually implement the draft-07 subset correctly? Try the test cases in tests/test-review-schemas.sh
+   - scripts/configure-backend.sh — five new provider fragments (cerebras, deepseek, nvidia, google, mlx). Verify the emitted opencode.json shape matches OpenCode 1.14.x's @ai-sdk/openai-compatible contract. The F1 lesson from v0.2.0 round-2 was that custom providers MUST include "models: { [model]: {} }". Verify each new fragment does.
+   - scripts/detect-backends.sh — --free-tier-first cascade order
+   - docs/cost-ladder.md — sanity-check any pricing/quota numbers
+6. Run npm test to confirm all 285 tests pass
+
+Output format: structured per-finding list. Each finding:
+- finding_id (F1, F2, ...)
+- severity (P0 / P1 / P2)
+- title
+- file:line
+- claim (what is wrong, why it matters)
+- recommendation (what should change)
+
+End with:
+- summary score (1-10)
+- CERTIFIED or NOT_CERTIFIED
+- one-paragraph rationale
+
+If you find the work solid, fewer findings is fine — do not pad. P0 = ship-blocker, P1 = should-fix-soon, P2 = nice-to-have.
