@@ -40,20 +40,34 @@ committing.
 # Detect what's reachable, biased toward free providers
 bash .opencode/scripts/detect-backends.sh --free-tier-first
 
-# Pick the highest-leverage free option
+# Pick the highest-leverage free option (verify the exact model ID
+# against the provider's current catalog — see "Verifying current
+# model IDs" below; these change faster than this doc ships)
 bash .opencode/scripts/configure-backend.sh \
   --tier hosted_oss --provider cerebras \
-  --model llama-3.3-70b
+  --model qwen-3-235b-a22b-instruct-2507
 ```
 
-| Slot | Provider | Model | Why | Cost |
-|------|----------|-------|-----|------|
-| Coder | Cerebras free | `llama-3.3-70b` | Fastest inference (~2000 tok/s), generous daily quota | $0 |
+| Slot | Provider | Example model (verify before use) | Why | Cost |
+|------|----------|-----------------------------------|-----|------|
+| Coder | Cerebras free | `qwen-3-235b-a22b-instruct-2507` or `gpt-oss-120b` | Fastest inference (~2000 tok/s), generous daily quota | $0 |
 | Coder (alt) | Groq free | `llama-3.3-70b-versatile` | Sub-second, free tier resets daily | $0 |
-| Coder (alt) | Google AI Studio | `gemini-2.0-flash` | 1M context, 1500 req/day free | $0 |
+| Coder (alt) | Google AI Studio | `gemini-2.5-flash` (1M context) | Generous daily request quota — verify current limits | $0 |
 | Coder (alt) | OpenRouter | `deepseek/deepseek-chat:free` | Aggregator routing, OSS models | $0 (rate-limited) |
 | Reviewer | NVIDIA NIM | `deepseek-ai/deepseek-r1` | Reasoning model, free credits at build.nvidia.com | $0 |
 | Reviewer (alt) | OpenRouter | `qwen/qwen-3-coder:free` | Code-tuned, free routing | $0 (rate-limited) |
+
+> **Verifying current model IDs.** Provider catalogs change monthly.
+> Before pinning a model, sanity-check the ID against the provider's
+> live docs — Cerebras: <https://inference-docs.cerebras.ai/models/overview>,
+> Google AI Studio: <https://ai.google.dev/gemini-api/docs/models>,
+> NVIDIA NIM: <https://build.nvidia.com>, Groq:
+> <https://console.groq.com/docs/models>. The IDs in this table were
+> calibrated 2026-05-05; codex round-1 review caught `llama-3.3-70b`
+> as no longer in Cerebras's catalog and `gemini-2.0-flash` as
+> deprecated (shutdown June 2026). If `configure-backend` writes a
+> stale ID, `opencode run` will surface a clear `model not found`
+> error — fixable in seconds, not a footgun.
 
 **Real constraints at $0:**
 - Daily quotas reset, but agentic loops burn fast — one complex task
@@ -106,7 +120,7 @@ ceiling matters, free for the rest.
 | Coder | Anthropic Claude (Pro) | `claude-sonnet-4.6` | $20/mo Pro sub or ~$3/M in via API | Best instruction-following + tool-use |
 | Coder (alt) | OpenAI Plus | `gpt-5.5` | $20/mo Plus sub | Strong reasoning, especially with xhigh effort |
 | Reviewer | Cerebras / Groq free | `llama-3.3-70b` | $0 | Cheap second opinion |
-| Reviewer (alt) | DeepSeek direct | `deepseek-chat` | ~$0.27/M in (pennies/review) | Strong OSS reasoning, cheapest hosted |
+| Reviewer (alt) | DeepSeek direct | `deepseek-chat` | ~$0.14/M in cache-miss (pennies/review) — verify current pricing | Strong OSS reasoning, cheapest hosted |
 | Reviewer (high-stakes) | Codex via API | `gpt-5.5` xhigh | ~$1-3 per review at xhigh | When release-critical |
 
 ```bash
@@ -181,7 +195,27 @@ model you're paying (or not paying) for.
 This is a snapshot — pricing and free-tier generosity shift faster
 than the wizard ships. If a number is stale by more than a few months
 or a provider has changed their tier structure, open an issue. The
-ratios (DeepSeek ≈ 50× cheaper than Opus, Cerebras ≈ 10× faster than
-hosted alternatives) tend to hold longer than the absolute prices.
+ratios (DeepSeek roughly an order of magnitude cheaper than Opus,
+Cerebras roughly an order of magnitude faster than hosted
+alternatives) tend to hold longer than the absolute prices.
 
-Last calibrated: 2026-05-05.
+**Specific calibration notes** for the prices/quotas in this doc:
+
+- DeepSeek `deepseek-chat` ≈ `$0.14/M in` cache-miss (was `$0.27/M`
+  in v0.8.0 — codex round-1 F4 caught the stale figure). Cache-hit
+  pricing is meaningfully cheaper. Verify at
+  <https://api-docs.deepseek.com/quick_start/pricing>.
+- Gemini 2.0 Flash is deprecated with shutdown 2026-06-01 — use
+  `gemini-2.5-flash` instead. Free quota is per-model and changes;
+  some quotas apply only to grounded prompts. Verify at
+  <https://ai.google.dev/gemini-api/docs/rate-limits>.
+- Cerebras catalog rotates faster than other providers — `llama-3.3-70b`
+  was in v0.8.0 of this doc, but as of 2026-05-05 the public production
+  models are `llama3.1-8b`, `gpt-oss-120b`, `qwen-3-235b-a22b-instruct-2507`,
+  and `zai-glm-4.7`. Verify at
+  <https://inference-docs.cerebras.ai/models/overview>.
+- Together initial credit and Groq daily quota change frequently —
+  always recheck.
+
+Last calibrated: 2026-05-05 (codex round-1 corrections applied for
+v0.8.1).

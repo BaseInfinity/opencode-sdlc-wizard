@@ -130,8 +130,15 @@ function validate(value, schema, root, ptr, errors) {
         }
       }
       if (matched) continue;
-      if (schema.additionalProperties === false && !known.has(k)) {
+      // additionalProperties may be:
+      //   false       — extra props forbidden
+      //   true        — extra props allowed (default)
+      //   {schema}    — extra props allowed but each must validate against the schema
+      const ap = schema.additionalProperties;
+      if (ap === false && !known.has(k)) {
         errors.push({ ptr: child, reason: 'additional property not allowed' });
+      } else if (ap && typeof ap === 'object' && !Array.isArray(ap)) {
+        validate(v, ap, root, child, errors);
       }
     }
   }

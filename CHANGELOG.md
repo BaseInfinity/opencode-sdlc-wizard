@@ -2,6 +2,71 @@
 
 All notable changes to opencode-sdlc-wizard.
 
+## [0.8.1] - 2026-05-05
+
+### Fixed — codex round-1 cross-model review (5 findings, all addressed)
+
+v0.7.0 + v0.8.0 shipped without external review. Codex xhigh round-1
+returned 6/10 NOT_CERTIFIED with 5 actionable findings. v0.8.1 fixes
+all five.
+
+**F1 (P1)** — `scripts/detect-backends.sh:140`. Privacy-first cascade
+emitted `hosted_oss/google_aistudio` while configurator only had
+`proprietary/google` — followup `--tier hosted_oss --provider
+google_aistudio` would fail "unsupported tier/provider". Fix: deleted
+the wrong-tier line; the proprietary fallthrough at line 143 was
+already correct. Both cascades now consistently put Google in
+proprietary tier.
+
+**F2 (P1)** — Detector accepted `NIM_API_KEY`/`GEMINI_API_KEY` as
+alternates for `NVIDIA_API_KEY`/`GOOGLE_API_KEY`, but the configurator
+hardcoded the canonical names in `{env:NAME}` references. A user with
+only the alternate set got a "successfully configured" backend that
+silently failed auth at runtime. Fix: dropped alternate support
+entirely. Canonical names only — `NVIDIA_API_KEY` for NVIDIA NIM,
+`GOOGLE_API_KEY` for Google AI Studio. JSON output `envs: [..]` array
+collapsed to `env: "NAME"` singular for shape consistency.
+
+**F3 (P1)** — `docs/cost-ladder.md` recommended Cerebras
+`llama-3.3-70b` (not in current Cerebras catalog) and Gemini
+`gemini-2.0-flash` (deprecated, June 2026 shutdown). Fix: updated
+$0/mo path to current valid IDs (`qwen-3-235b-a22b-instruct-2507` /
+`gpt-oss-120b` / `gemini-2.5-flash`). Added a "Verifying current model
+IDs" callout block with live links to each provider's catalog. Added
+per-provider calibration history to the closing notes section.
+
+**F4 (P2)** — DeepSeek price quoted `~$0.27/M`, current is `~$0.14/M`
+cache-miss. Fixed inline + added cache-hit qualifier to the calibration
+notes.
+
+**F5 (P2)** — `scripts/validate-review-artifact.js:133` only handled
+`additionalProperties === false`, ignored schema-valued
+`additionalProperties` used in the schemas for
+`verification_state.test_counts`. Bad values like
+`{"bad":"not-int","negative":-1}` validated successfully. Fix: added
+object-schema branch — extra properties now recursively validate
+against the addProps schema. Live `.reviews/*.json` artifacts still
+pass; bad test_counts now fail with type/minimum errors.
+
+### Tests
+
+- `test-backend-picker.sh` 29 → 31: T29 (Google in proprietary tier
+  both cascades), T30 (alt env names not honored)
+- `test-review-schemas.sh` 28 → 30: T29 (schema-valued addProps
+  enforced), T30 (positive case)
+- T21 in picker updated to use `GOOGLE_API_KEY` instead of
+  `GEMINI_API_KEY`
+
+**Total: 289 tests across 11 suites** (was 285 in v0.8.0).
+
+### Dogfood
+
+Schemas validated their own review artifacts: `.reviews/handoff.json`
+and `.reviews/response.json` for the v0.7-v0.8-001 review both
+validate against the v0.7.0 schemas. Conditional validation fired —
+all five findings are `status: FIXED` with `fix_summary` +
+`fix_locations` populated.
+
 ## [0.8.0] - 2026-05-05
 
 ### Added — free-tier-first cascade + 5 new providers + cost ladder doc

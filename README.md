@@ -1,9 +1,10 @@
 # OpenCode SDLC Wizard
 
-> **Status: v0.8.0 (free-tier-first picker + cost ladder doc + Cerebras
-> / DeepSeek-direct / NVIDIA NIM / Google AI Studio / MLX detection +
-> schemas + validator + full template set + check subcommand) —
-> 2026-05-05.** Install with `npx opencode-sdlc-wizard init`, check
+> **Status: v0.8.1 (codex round-1 fixes — Google tier mismatch,
+> canonical env names, cost-ladder freshness, validator addProps —
+> on top of v0.8.0's free-tier-first picker + cost ladder + 5 new
+> providers + schemas + validator + full template set + check
+> subcommand) — 2026-05-05.** Install with `npx opencode-sdlc-wizard init`, check
 > upstream with `npx opencode-sdlc-wizard check`. Full SDLC loop is
 > any-backend on both coder AND reviewer (zero Anthropic+OpenAI lock-in
 > possible); detector now picks up free-tier-friendly providers

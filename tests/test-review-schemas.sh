@@ -420,6 +420,56 @@ else
   fail "package.json files[] missing templates/"
 fi
 
+# T29: codex round-1 F5 regression — schema-valued additionalProperties
+# Schemas use additionalProperties: { type: integer, minimum: 0 } for
+# verification_state.test_counts. Non-integer or negative values must fail.
+RESP_BAD_TC="$TMP_ROOT/response-bad-test-counts.json"
+cat > "$RESP_BAD_TC" <<'JSON'
+{
+  "review_id": "r-bad-tc",
+  "round": 1,
+  "responses": [],
+  "verification_state": {
+    "tests_green": true,
+    "test_counts": {"total": 100, "bad": "not-int", "negative": -1}
+  }
+}
+JSON
+set +e
+out="$("$VALIDATOR" "$RESP_BAD_TC" "$RESPONSE_SCHEMA" 2>&1)"
+rc=$?
+set -e
+if [ "$rc" -eq 1 ] \
+   && echo "$out" | grep -q 'test_counts/bad.*type mismatch' \
+   && echo "$out" | grep -q 'test_counts/negative.*minimum violation'; then
+  pass "schema-valued additionalProperties enforced on test_counts (F5 fix)"
+else
+  fail "F5 regression — schema-valued addProps not enforced (rc=$rc): $out"
+fi
+
+# T30: schema-valued additionalProperties — valid integers still pass
+RESP_GOOD_TC="$TMP_ROOT/response-good-test-counts.json"
+cat > "$RESP_GOOD_TC" <<'JSON'
+{
+  "review_id": "r-good-tc",
+  "round": 1,
+  "responses": [],
+  "verification_state": {
+    "tests_green": true,
+    "test_counts": {"total": 285, "suite_a": 73, "suite_b": 11}
+  }
+}
+JSON
+set +e
+out="$("$VALIDATOR" "$RESP_GOOD_TC" "$RESPONSE_SCHEMA" 2>&1)"
+rc=$?
+set -e
+if [ "$rc" -eq 0 ] && echo "$out" | grep -q '^OK '; then
+  pass "schema-valued additionalProperties — valid integer test_counts pass"
+else
+  fail "valid test_counts should pass (rc=$rc): $out"
+fi
+
 echo ""
 echo "=== Results: $PASS passed, $FAIL failed ==="
 [ "$FAIL" -eq 0 ]

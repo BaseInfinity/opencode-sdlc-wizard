@@ -1,43 +1,50 @@
 {
-  "review_id": "opencode-sdlc-wizard-v0.2.0-002",
+  "review_id": "opencode-sdlc-wizard-v0.7-v0.8-001",
   "status": "PENDING_REVIEW",
-  "round": 2,
-  "supersedes_round": 1,
-  "mission": "v0.2.0 expands the v0.1.0 OpenCode port (Phase A) with a privacy-first backend picker — the differentiator that justifies this sibling's existence vs the Claude/Codex siblings. Two scripts (scripts/detect-backends.sh, scripts/configure-backend.sh) plus PRIVACY.md ship as part of the install bundle. Round-2 must (a) re-verify the 6 round-1 fixes are still in place against current main + working tree (per .reviews/response.json), (b) audit the new picker as a fresh review, (c) confirm 107/107 tests across 4 suites still pass, (d) verify docs (README.md, AGENTS.md, PRIVACY.md, HANDOFF.md addendum, CHANGELOG.md) are coherent with the code.",
-  "success": "Reviewer confirms: (1) all 6 round-1 findings stay FIXED at the file:line pairs cited in response.json; (2) detect-backends.sh emits well-formed JSON with the four-tier shape, recommendation cascades privacy-first, no live network calls; (3) configure-backend.sh writes a valid opencode.json shape per OpenCode's documented config schema (https://opencode.ai/docs/config/, https://opencode.ai/docs/providers/), uses {env:VAR} substitution for keys, is idempotent, refuses to clobber an existing model pin without --force; (4) PRIVACY.md tier model matches the script tier names (private_local / enterprise / hosted_oss / proprietary); (5) install.sh now ships the scripts at .opencode/scripts/ + chmod +x's them, but still leaves opencode.json untouched (configure-backend.sh is opt-in); (6) setup-wizard SKILL.md walks the user through the picker with privacy-first defaults; (7) version bump from 0.1.0 → 0.2.0 in package.json + CHANGELOG.md is documented and accurate; (8) test count is 107 (57 + 11 + 13 + 15 — bundle/plugin/install/picker).",
-  "failure": "(a) Picker JSON shape doesn't match OpenCode's actual provider plugin contract — e.g., we use `npm: \"@ai-sdk/openai-compatible\"` for local providers but the field name might actually be different (e.g., `module`); (b) {env:VAR} substitution syntax we emit doesn't match what OpenCode actually parses; (c) configure-backend's deep-merge of provider config silently drops parts of an existing custom provider block; (d) detect-backends recommendation cascade has a privacy hole — e.g., it could prefer enterprise over private_local in some edge case; (e) the picker scripts are fine standalone but the setup-wizard SKILL.md prompts for them in a way that contradicts the wizard's `Does not pin a model in opencode.json without explicit user choice` guarantee; (f) PRIVACY.md verification command (`opencode --print-config`) doesn't actually exist; (g) round-1 fixes silently regress in the file:line pairs cited.",
-  "files_changed_v020": [
-    "AGENTS.md (privacy-tier section + PRIVACY.md link)",
-    "CHANGELOG.md (v0.2.0 entry)",
-    "HANDOFF.md (v0.2.0 addendum)",
-    "PRIVACY.md (NEW — four-tier model + Ollama walkthrough + verification)",
-    "README.md (banner bumped, privacy-first picker section, tier table)",
-    "install.sh (REQUIRED_SOURCES + declare_target add scripts; chmod +x picker scripts; Next Steps mention picker)",
-    "package.json (0.1.0 → 0.2.0; files[] adds scripts/ + PRIVACY.md; test script adds picker tests)",
-    "scripts/configure-backend.sh (NEW — writes/merges opencode.json with --tier --provider --model + --force/--print-only)",
-    "scripts/detect-backends.sh (NEW — env+PATH probe → JSON, privacy-first recommendation cascade)",
-    "skills/setup-wizard/SKILL.md (rewrote Step 2/Step 3 with concrete picker invocation)",
-    "tests/test-backend-picker.sh (NEW — 15 tests for picker)",
-    "tests/test-bundle-integrity.sh (added scripts/+PRIVACY.md presence + tier-name guards; 57 → 68)",
-    "tests/test-install.sh (added scripts install + executable check; bumped re-install MATCH count to 15+; 12 → 13)"
-  ],
-  "files_unchanged_v020_round1_fixes_held": [
-    ".opencode/plugins/sdlc-wizard.js (round-1 P0 #1 + P0 #2 fixes — verify still intact)",
-    ".opencode/hooks/* (verbatim from parent — not in review scope)",
-    "skills/sdlc/SKILL.md (verbatim workflow; not in review scope)"
+  "round": 1,
+  "mission": "Cross-model review of v0.7.0 + v0.8.0 (commits 6c5c4a2 + fb1e1ce). v0.7.0 added JSON Schemas (draft-07) for .reviews/{handoff,response}.json + a zero-dep node validator. v0.8.0 added a --free-tier-first cascade flag, five new providers (Cerebras, DeepSeek-direct, NVIDIA NIM, Google AI Studio, MLX), and docs/cost-ladder.md. Both shipped without external review. This round confirms shape correctness, security posture, and SDLC-protocol adherence.",
+  "success": "Reviewer confirms: (1) handoff/response schemas correctly model the artifact shapes — required fields right, conditional FIXED→fix_summary+fix_locations and REJECTED→rejection_reason actually fire, severity pattern matches both bare 'P0' and 'P0 (parenthetical)' forms; (2) validate-review-artifact.js handles the draft-07 subset correctly including $ref + allOf if/then + const + patternProperties — no false positives or silent passes on malformed artifacts; (3) the five new providers in detect-backends.sh + configure-backend.sh emit OpenCode-resolvable opencode.json (custom providers include `models: { [model]: {} }` per the F1 lesson from v0.2.0); (4) PROVIDER_ALIASES correctly maps friendly→canonical IDs (nvidia_nim→nvidia, google_aistudio→google, gemini→google); (5) baseURLs are correct (Cerebras https://api.cerebras.ai/v1, DeepSeek https://api.deepseek.com/v1, NVIDIA https://integrate.api.nvidia.com/v1, Google https://generativelanguage.googleapis.com/v1beta/openai); (6) --free-tier-first cascade order is sane (NVIDIA NIM → Cerebras → Groq → Google → OpenRouter → DeepSeek → Together → enterprise → proprietary); (7) docs/cost-ladder.md numbers are plausible and the capability-floor section is honest about the 30B+ requirement; (8) all 285 tests across 11 suites pass and meaningfully exercise the new code (no smoke-test-only coverage); (9) drift-test extension (T7 *.js + T12 schemas) catches the new file classes.",
+  "failure": "Possible regressions: (a) Schema permissiveness — additionalProperties: true is forward-compat but means a typo in a required-ish field like 'status' could silently land as an extra prop instead of failing; verify the FIXED-conditional fires correctly in the wild; (b) Validator $ref handling could miss circular refs or refs into definitions{} that don't exist; (c) NVIDIA NIM model id format — we emit `nvidia/<vendor>/<model>` (e.g., nvidia/meta/llama-3.3-70b) — verify OpenCode actually accepts triple-segment ids; (d) Google AI Studio's OpenAI-compatible endpoint URL — verify generativelanguage.googleapis.com/v1beta/openai is current and not a deprecated v1alpha path; (e) Cerebras + DeepSeek-direct rate-limits not surfaced anywhere — users may hit them and not know why; (f) MLX baseURL defaults to 127.0.0.1:8080 but mlx_lm.server's actual default is 8080 only with --port flag; verify the doc; (g) The hybrid coder/reviewer pattern in cost-ladder.md says 'edit opencode.json or call configure-backend again' to swap — but v0.8.0 has no mixed-mode skill, so swap is manual; surface this clearly; (h) docs/cost-ladder.md cited prices may be stale within months — already noted in the doc but reviewer should flag any that look wildly off; (i) Custom-provider models block (`models: { [model]: {} }`) — verify the empty-object value still resolves correctly for Cerebras/DeepSeek/NVIDIA on opencode 1.14.x.",
+  "files_changed": [
+    "scripts/detect-backends.sh (mlx + 4 hosted_oss/proprietary providers + --free-tier-first flag + dual cascade)",
+    "scripts/configure-backend.sh (PROVIDER_ALIASES + 6 new fragment cases: mlx, cerebras, deepseek, nvidia, google)",
+    "scripts/validate-review-artifact.js (NEW — zero-dep draft-07 subset validator)",
+    "scripts/validate-review-artifact.sh (NEW — bash wrapper)",
+    "templates/schemas/handoff.schema.json (NEW)",
+    "templates/schemas/response.schema.json (NEW — with allOf if/then conditionals)",
+    "docs/cost-ladder.md (NEW)",
+    "install.sh (REQUIRED_SOURCES + declare_target add schemas + validator)",
+    "skills/cross-model-review/SKILL.md (Step 1.5 — validate before sending)",
+    "skills/setup-wizard/SKILL.md (Step 4 mentions schemas)",
+    "tests/test-review-schemas.sh (NEW — 28 tests)",
+    "tests/test-backend-picker.sh (21 → 29: new provider tests + --free-tier-first)",
+    "tests/test-doc-templates.sh (17 → 24: cost-ladder.md + load-bearing sections)",
+    "tests/test-bundle-drift.sh (T7 *.js + T12 schemas)",
+    "package.json (0.6.0 → 0.8.0; files[] += docs/; test script += test-review-schemas.sh)",
+    "CHANGELOG.md (v0.7.0 + v0.8.0 entries)",
+    "ROADMAP.md (marked shipped)",
+    "README.md (status banner + provider list + cost-ladder cross-link)"
   ],
   "verification_state": {
     "tests_green": true,
     "test_counts": {
-      "test-bundle-integrity.sh": 68,
+      "test-bundle-integrity.sh": 73,
       "test-plugin-shim.sh": 11,
       "test-install.sh": 13,
-      "test-backend-picker.sh": 15,
-      "total": 107
-    }
+      "test-backend-picker.sh": 29,
+      "test-cli.sh": 10,
+      "test-cross-model-review.sh": 10,
+      "test-domain-templates.sh": 26,
+      "test-bundle-drift.sh": 51,
+      "test-check-cli.sh": 10,
+      "test-doc-templates.sh": 24,
+      "test-review-schemas.sh": 28,
+      "total": 285
+    },
+    "live_e2e_verified": "Static review only — no live E2E run for v0.7.0/v0.8.0 yet. v0.2.0 baseline live E2E (opencode-ai@1.14.33) still applicable for plugin/hooks; the new scripts are pure bash/node and don't touch the plugin runtime."
   },
-  "review_instructions": "Two phases: (1) RECHECK round-1 — for each of the 6 findings in .reviews/response.json, verify the FIXED claims still hold against current working tree (file:line pairs are listed). Do NOT re-review the bash hooks. (2) FRESH REVIEW v0.2.0 picker — audit scripts/{detect,configure}-backends.sh and the PRIVACY.md / setup-wizard skill / install.sh changes that wire them in. Cross-check the configurator's opencode.json output against OpenCode's actual config schema (fetch https://opencode.ai/docs/config/ and https://opencode.ai/docs/providers/ if needed). Be strict on (a) JSON shape correctness, (b) privacy guarantee — does the recommendation cascade ever leak data when a less-private tier has higher capability?, (c) idempotency claims, (d) doc/code coherence. End with: score (1-10), CERTIFIED or NOT CERTIFIED. Do NOT raise new findings unless P0 on the unchanged round-1 surface; for the new picker, all findings are in scope.",
-  "preflight_path": ".reviews/preflight-v0.1.0.md",
+  "review_instructions": "Two phases. (1) Schema correctness — validate templates/schemas/{handoff,response}.schema.json against the live .reviews/{handoff,response}.json artifacts using bash scripts/validate-review-artifact.sh. Confirm conditionals fire (FIXED requires fix_summary+fix_locations; REJECTED requires rejection_reason). Try a malformed handoff: missing 'failure' should rc=1. (2) Provider audit — for each new provider (cerebras/deepseek/nvidia/google/mlx), verify the emitted opencode.json fragment matches what OpenCode 1.14.x actually expects. Hot spot: NVIDIA NIM `nvidia/meta/llama-3.3-70b-instruct` model string with two slashes. Cross-check baseURLs against current provider docs if you can. (3) docs/cost-ladder.md — flag any specific price/quota numbers that look stale or wrong (DeepSeek ~$0.27/M in, Together $25 initial credits, Groq sub-second, NVIDIA NIM credits, Gemini 1500 req/day on Flash — these were calibrated 2026-05-05). End with: per-finding table (severity P0/P1/P2, status, file:line, recommendation), score (1-10), CERTIFIED or NOT_CERTIFIED. Do NOT raise findings for the bash hooks or plugin shim — those are out of scope for this round (covered by v0.2.0 review).",
+  "preflight_path": "n/a",
   "response_path": ".reviews/response.json",
-  "artifact_path": "https://github.com/BaseInfinity/opencode-sdlc-wizard"
+  "artifact_path": "https://github.com/BaseInfinity/opencode-sdlc-wizard/compare/v0.6.0...v0.8.0"
 }
