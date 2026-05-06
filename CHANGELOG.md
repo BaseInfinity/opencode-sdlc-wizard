@@ -2,6 +2,26 @@
 
 All notable changes to opencode-sdlc-wizard.
 
+## [0.8.3] - 2026-05-06
+
+### Fixed — release workflow unblocked
+
+`tests/test-review-schemas.sh` T13/T14 asserted `fail` when live
+`.reviews/handoff.json` / `.reviews/response.json` were absent, but
+those files are per-cycle review scratch — `response.json` is gitignored
+and CI clean checkouts never have either. Every release tag from v0.6.0
+onward (v0.6.0, v0.7.0, v0.8.0, v0.8.1, v0.8.2) failed at this single
+test, leaving npm pinned at **0.2.0** while local was at **0.8.2**.
+
+Fix: T13 + T14 now use validate-if-present semantics — schema check
+runs when the file exists, absent files emit a "skipped" pass.
+
+30/30 review-schema tests green (was 29/30). All 11 test suites green.
+
+PR #1.
+
+---
+
 ## [0.8.2] - 2026-05-05
 
 ### Fixed — codex round-2 F3 follow-up (PARTIALLY-FIXED → HOLDS)
