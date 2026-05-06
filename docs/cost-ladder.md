@@ -119,7 +119,7 @@ ceiling matters, free for the rest.
 |------|----------|-------|------|-----|
 | Coder | Anthropic Claude (Pro) | `claude-sonnet-4.6` | $20/mo Pro sub or ~$3/M in via API | Best instruction-following + tool-use |
 | Coder (alt) | OpenAI Plus | `gpt-5.5` | $20/mo Plus sub | Strong reasoning, especially with xhigh effort |
-| Reviewer | Cerebras / Groq free | `llama-3.3-70b` | $0 | Cheap second opinion |
+| Reviewer | Cerebras free / Groq free | `gpt-oss-120b` (Cerebras) or `llama-3.3-70b-versatile` (Groq) | $0 | Cheap second opinion |
 | Reviewer (alt) | DeepSeek direct | `deepseek-chat` | ~$0.14/M in cache-miss (pennies/review) — verify current pricing | Strong OSS reasoning, cheapest hosted |
 | Reviewer (high-stakes) | Codex via API | `gpt-5.5` xhigh | ~$1-3 per review at xhigh | When release-critical |
 
@@ -154,7 +154,7 @@ or anyone whose time is more valuable than tokens.
 | Coder (alt) | OpenAI | `gpt-5.5` xhigh | ~$80-130 | Strongest reasoning at xhigh effort |
 | Reviewer | Codex CLI (xhigh) | `gpt-5.5` | ~$30-50 | Cross-model review on every release |
 | Reviewer (parallel) | DeepSeek direct | `deepseek-r1` | ~$10-20 | Cheap second-reviewer for triangulation |
-| CI gate | Groq free / Cerebras free | `llama-3.3-70b` | $0 | Fast PR-review loops, free tier |
+| CI gate | Groq free / Cerebras free | `llama-3.3-70b-versatile` (Groq) or `gpt-oss-120b` (Cerebras) | $0 | Fast PR-review loops, free tier |
 
 **The pattern that earns this budget:**
 - Three reviewers: codex (xhigh), DeepSeek-R1, plus the originating
@@ -170,11 +170,11 @@ Forget the budget bracket for a sec — pick by what the job is.
 
 | Job | Best tier | Best model | Notes |
 |-----|-----------|-----------|-------|
-| Routine fix / typo / small CSS | hosted_oss free | Cerebras Llama 3.3 70B | Fast + free + clears the bar |
+| Routine fix / typo / small CSS | hosted_oss free | Cerebras `gpt-oss-120b` or `qwen-3-235b-a22b-instruct-2507` | Fast + free + clears the bar |
 | TDD on new feature, mid-stakes | $20 path | Claude Sonnet 4.6 | Tool-use is its strength |
 | Long-context refactor | $200 path | Opus 4.7 (1M context) | Floor is "fits in context" |
 | Security audit / privileged code | private_local | Qwen2.5-Coder-32B local | Zero egress |
-| CI gating on every PR | hosted_oss free | Groq Llama 3.3 70B | Speed + cost dominate |
+| CI gating on every PR | hosted_oss free | Groq `llama-3.3-70b-versatile` | Speed + cost dominate (Groq still ships Llama 3.3 70B; Cerebras dropped it) |
 | Architecture decision (novel) | $200 path | Opus 4.7 + Codex xhigh review | Ceiling matters |
 | Bulk doc / refactor sweeps | hosted_oss cheap-paid | DeepSeek-V3.1 direct | Cheap per token, decent quality |
 | Air-gapped / compliance-locked | private_local | Whatever fits VRAM | Hardware floor matters more than ceiling |
