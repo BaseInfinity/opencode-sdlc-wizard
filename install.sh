@@ -54,6 +54,27 @@ echo "OpenCode SDLC Wizard v$WIZARD_VERSION"
 echo "Target: $TARGET_DIR"
 echo ""
 
+# Sibling-wizard detection — two SDLC wizards in one repo is supported (each
+# writes to its own directory), but worth surfacing so users don't expect a
+# merge of behavior. Caught during the states-project-research consumption
+# test where the repo already had claude-sdlc-wizard installed.
+SIBLINGS=""
+if [ -d "$TARGET_DIR/.claude/skills/sdlc" ] || \
+   [ -f "$TARGET_DIR/CLAUDE_CODE_SDLC_WIZARD.md" ]; then
+  SIBLINGS="${SIBLINGS}  - claude-sdlc-wizard (.claude/)
+"
+fi
+if [ -d "$TARGET_DIR/.codex" ]; then
+  SIBLINGS="${SIBLINGS}  - codex-sdlc-wizard (.codex/)
+"
+fi
+if [ -n "$SIBLINGS" ]; then
+  echo "Note: detected sibling SDLC wizard installation(s):"
+  printf '%s' "$SIBLINGS"
+  echo "  opencode-sdlc-wizard installs to .opencode/ — both can coexist."
+  echo ""
+fi
+
 # Required source files in this repo (the bundle)
 REQUIRED_SOURCES=(
   "AGENTS.md"

@@ -116,6 +116,23 @@ else
   fail "package.json files[] missing docs/"
 fi
 
+# v0.8.6 — setup-wizard SKILL.md must reference every backend provider the
+# v0.8.x picker emits, and the --free-tier-first flag. Drift here gives users
+# a stale tier list when they run the skill (caught alongside the install.sh
+# next-steps drift in v0.8.4 — same root cause, different surface).
+SETUP="$REPO_ROOT/skills/setup-wizard/SKILL.md"
+missing=""
+for token in cerebras deepseek nvidia_nim google_aistudio mlx "--free-tier-first"; do
+  if ! grep -qi -- "$token" "$SETUP"; then
+    missing="$missing $token"
+  fi
+done
+if [ -z "$missing" ]; then
+  pass "setup-wizard SKILL.md mentions every v0.8.x provider + --free-tier-first"
+else
+  fail "setup-wizard SKILL.md missing tokens:$missing"
+fi
+
 echo ""
 echo "=== Results: $PASS passed, $FAIL failed ==="
 [ "$FAIL" -eq 0 ] || exit 1

@@ -2,6 +2,52 @@
 
 All notable changes to opencode-sdlc-wizard.
 
+## [0.8.6] - 2026-05-06
+
+### Fixed — sibling-wizard awareness + setup-wizard skill provider drift
+
+Two issues in the same release because they share a root cause: **drift
+between v0.8.0's expanded picker and the surfaces that describe it**.
+
+**Sibling-wizard awareness in install.sh.** Caught during the
+`states-project-research` consumption test where the repo already had
+`claude-sdlc-wizard` installed. `install.sh` happily wrote `.opencode/`
+without acknowledging the existing `.claude/` install — leaving the
+user wondering whether the wizards were merging behavior or stomping
+each other (they coexist; one writes `.opencode/`, the other `.claude/`).
+
+- New detection block runs right after the version banner.
+- Looks for `.claude/skills/sdlc/` or `CLAUDE_CODE_SDLC_WIZARD.md`
+  (claude-sdlc-wizard) and `.codex/` (codex-sdlc-wizard).
+- Prints a single-paragraph "Note: detected sibling SDLC wizard
+  installation(s)" with the dirs found, then continues install.
+- Non-blocking; informational only.
+
+**Setup-wizard SKILL.md provider drift.** Same root cause as v0.8.4's
+`install.sh` next-steps drift — the skill still listed the v0.2.0 tier
+providers (Ollama / LM Studio / llama.cpp / vLLM, Together / Groq /
+OpenRouter, Anthropic / OpenAI). Five providers added in v0.8.0 (MLX,
+Cerebras, DeepSeek direct, NVIDIA NIM, Google AI Studio) were missing.
+
+- `private_local` row gains MLX (Apple Silicon native).
+- `hosted_oss` row gains Cerebras / DeepSeek direct / NVIDIA NIM,
+  with a free-tier callout pointing to `docs/cost-ladder.md`.
+- `proprietary` row gains Google AI Studio (Gemini, closed weights).
+- Step 2 now shows the `--free-tier-first` flag inline so users see
+  it without reading `--help`.
+
+### Tests
+
+- `test-install.sh` adds T10/T11/T12: claude-sdlc-wizard detected,
+  codex-sdlc-wizard detected, fresh empty target produces no false
+  sibling detection.
+- `test-doc-templates.sh` adds a setup-wizard provider drift gate:
+  asserts every v0.8.x picker provider + `--free-tier-first` are
+  named in the SKILL.md.
+- 17/17 install behavior tests green (was 14/14).
+- 25/25 doc template tests green (was 24/24).
+- Full suite: 297/11 (was 293/11).
+
 ## [0.8.5] - 2026-05-06
 
 ### Fixed — schema validator emits domain-mismatch hint on foreign-domain artifacts
