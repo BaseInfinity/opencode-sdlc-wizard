@@ -2,6 +2,48 @@
 
 All notable changes to opencode-sdlc-wizard.
 
+## [0.8.7] - 2026-05-06
+
+### Fixed — cross-model-review SKILL.md provider drift + stale DeepSeek price
+
+Audit-driven completion of the v0.8.0 provider rollout: this is the
+third surface (after install.sh in v0.8.4 and setup-wizard SKILL.md
+in v0.8.6) carrying the same drift. The Step 2 reviewer table still
+recommended `togetherai/deepseek-ai/DeepSeek-V3` as the default at
+`~$0.27/M` — both the model id and the price had moved.
+
+Updates to `skills/cross-model-review/SKILL.md`:
+
+- **Step 2 reviewer table** gains four rows for v0.8.0 providers:
+  - `private_local/mlx` — Apple Silicon native (Qwen2.5-Coder-32B 4bit)
+  - `hosted_oss/cerebras` — free tier, ~2000 tok/s, gpt-oss-120b /
+    qwen-3-235b-a22b-instruct-2507
+  - `hosted_oss/deepseek` direct — cheapest paid hosted reasoning
+    (~$0.14/M cache-miss, deepseek-chat)
+  - `hosted_oss/nvidia_nim` — free credits at build.nvidia.com
+- **Stale Together row** kept but model bumped to `DeepSeek-V3.1`
+  (current) and price callout dropped from this row (it was wrong,
+  and the cheaper deepseek-direct row sits next to it now).
+- **Default suggestion** no longer pins `togetherai/DeepSeek-V3`.
+  Points users to `docs/cost-ladder.md` for the per-budget pick and
+  names three common defaults (cerebras free, deepseek cheap-paid,
+  ollama local).
+- **Step 3 examples** now show two paths — the free-tier Cerebras
+  default and the cheapest-paid DeepSeek-direct path. Old Together
+  example removed.
+
+### Tests
+
+- `test-doc-templates.sh` adds two gates against
+  `cross-model-review/SKILL.md`:
+  - Each v0.8.0 provider (cerebras / deepseek / nvidia_nim) appears
+    as a Step 2 table row OR a Step 3 `--reviewer-provider` flag —
+    avoids coincidental matches on legacy model names like
+    `deepseek-coder-v2:16b`.
+  - Stale `~$0.27/M` DeepSeek price string must not reappear.
+- 27/27 doc-template tests green (was 25/25).
+- Full suite: 299/11 (was 297/11).
+
 ## [0.8.6] - 2026-05-06
 
 ### Fixed — sibling-wizard awareness + setup-wizard skill provider drift

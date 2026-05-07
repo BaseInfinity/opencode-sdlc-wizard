@@ -133,6 +133,38 @@ else
   fail "setup-wizard SKILL.md missing tokens:$missing"
 fi
 
+# v0.8.7 — cross-model-review SKILL.md must reference the v0.8.0 reviewer-
+# suitable providers (Cerebras, DeepSeek direct, NVIDIA NIM) and not pin
+# users to the stale togetherai/DeepSeek-V3 default. Same drift family as
+# v0.8.4 (install.sh) and v0.8.6 (setup-wizard SKILL.md).
+CMR="$REPO_ROOT/skills/cross-model-review/SKILL.md"
+# Each provider must appear as a configurator-style provider ID (matched
+# either inside the Step 2 table cell `| <provider> |` or in a Step 3
+# command flag `--reviewer-provider <provider>`). This avoids coincidental
+# matches on legacy model names like `deepseek-coder-v2:16b`.
+missing=""
+for prov in cerebras deepseek nvidia_nim; do
+  if ! grep -qE "^\| .*\| $prov \|" "$CMR" \
+     && ! grep -qE -- "--reviewer-provider $prov\b" "$CMR"; then
+    missing="$missing $prov"
+  fi
+done
+if [ -z "$missing" ]; then
+  pass "cross-model-review SKILL.md lists v0.8.0 reviewer providers"
+else
+  fail "cross-model-review SKILL.md missing providers:$missing"
+fi
+
+# DeepSeek price drift — codex round-1 F4 fixed cost-ladder.md from $0.27
+# to $0.14, but the cross-model-review SKILL.md still quoted the old number
+# at line 90. The accurate price is the cache-miss number in the calibration
+# notes; the SKILL.md must NOT contain the stale ~\$0.27/M anywhere.
+if grep -qE '~\$0\.27/M|0\.27/M input' "$CMR"; then
+  fail "cross-model-review SKILL.md still quotes stale DeepSeek price ~\$0.27/M (current is ~\$0.14/M)"
+else
+  pass "cross-model-review SKILL.md no longer quotes stale DeepSeek price"
+fi
+
 echo ""
 echo "=== Results: $PASS passed, $FAIL failed ==="
 [ "$FAIL" -eq 0 ] || exit 1
