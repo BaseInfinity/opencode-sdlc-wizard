@@ -2,6 +2,48 @@
 
 All notable changes to opencode-sdlc-wizard.
 
+## [0.8.8] - 2026-05-06
+
+### Fixed — AGENTS.md + PRIVACY.md tier drift (final v0.8.0 sweep)
+
+Last surface in the v0.8.0 provider drift family. The user-facing
+AGENTS.md tier table and the deeper PRIVACY.md tier walkthroughs both
+still listed only the v0.2.0 providers. Since AGENTS.md is what
+OpenCode auto-loads at session start, this was the most user-visible
+of the four drift surfaces.
+
+**`AGENTS.md`** privacy-tier table updated:
+- `private_local` row gains MLX (Apple Silicon)
+- `hosted_oss` row gains Cerebras / DeepSeek direct / NVIDIA NIM
+- `proprietary` row gains Google AI Studio (`google_aistudio`)
+- New `--free-tier-first` example before the configure call
+- New cross-link to `docs/cost-ladder.md`
+
+**`PRIVACY.md`** tier walkthroughs updated:
+- private_local runtime table gains MLX row with default URL +
+  suggested model
+- hosted_oss provider table gains 3 rows (Cerebras / DeepSeek /
+  NVIDIA NIM) plus a Notes column flagging free tier and pricing
+- hosted_oss configure example now shows free-tier path (Cerebras),
+  cheapest paid path (DeepSeek direct), and the original Together
+  example
+- proprietary section gains Google AI Studio configure example
+  with the closed-weights caveat
+
+### Tests
+
+- `test-doc-templates.sh` adds 2 final drift gates: AGENTS.md tier
+  table covers v0.8.0 providers + PRIVACY.md tier walkthroughs cover
+  same. Catches the next regression of this kind.
+- 29/29 doc-template tests green (was 27/27).
+- Full suite: 301/11 (was 299/11).
+
+**v0.8.0 drift family closed.** Four surfaces in total were carrying
+the same drift — install.sh next-steps (v0.8.4), validator domain
+mismatch (v0.8.5, related), setup-wizard SKILL.md (v0.8.6),
+cross-model-review SKILL.md (v0.8.7), and now AGENTS.md +
+PRIVACY.md (v0.8.8). Each surface now has a regression gate.
+
 ## [0.8.7] - 2026-05-06
 
 ### Fixed — cross-model-review SKILL.md provider drift + stale DeepSeek price

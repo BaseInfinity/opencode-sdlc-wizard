@@ -43,6 +43,7 @@ Supported runtimes (all open-weight, locally hosted):
 | **LM Studio** | `http://127.0.0.1:1234/v1` | Whatever you've loaded in the GUI |
 | **llama.cpp** | `http://127.0.0.1:8080/v1` | Any GGUF you've loaded |
 | **vLLM** | `http://127.0.0.1:8000/v1` | Any HuggingFace ID you serve |
+| **MLX** (Apple Silicon native) | `http://127.0.0.1:8080/v1` | `mlx-community/Qwen2.5-Coder-32B-Instruct-4bit` (32 GB unified memory) |
 
 **Capability floor.** SDLC enforcement (plan → TDD → self-review → cross-model
 review) leans on instruction-following + tool-use. The 30B+ code-tuned class
@@ -105,13 +106,29 @@ OpenCode reads keys via `{env:VAR}` substitution; no secrets land in
 Open-weight model on a hosted endpoint. Use when local hardware is
 insufficient and an enterprise tenant is unavailable.
 
-| Provider | Suggested model |
-|----------|------------------|
-| Together | `Qwen/Qwen2.5-Coder-32B-Instruct` |
-| Groq | `llama-3.3-70b-versatile` |
-| OpenRouter | `qwen/qwen-2.5-coder-32b-instruct` |
+| Provider | Suggested model | Notes |
+|----------|-----------------|-------|
+| Together | `Qwen/Qwen2.5-Coder-32B-Instruct` | Stable, paid hosting |
+| Groq | `llama-3.3-70b-versatile` | Fastest hosted, free daily quota |
+| OpenRouter | `qwen/qwen-2.5-coder-32b-instruct` | Aggregator routing across providers |
+| Cerebras | `gpt-oss-120b` or `qwen-3-235b-a22b-instruct-2507` | Free tier, ~2000 tok/s |
+| DeepSeek direct | `deepseek-chat` | Cheapest paid hosted (~$0.14/M cache-miss) |
+| NVIDIA NIM (`nvidia_nim`) | `deepseek-ai/deepseek-r1` | Free credits at build.nvidia.com |
 
 ```bash
+# Free path — Cerebras
+export CEREBRAS_API_KEY="..."
+bash .opencode/scripts/configure-backend.sh \
+     --tier hosted_oss --provider cerebras \
+     --model "gpt-oss-120b"
+
+# Cheapest paid — DeepSeek direct
+export DEEPSEEK_API_KEY="..."
+bash .opencode/scripts/configure-backend.sh \
+     --tier hosted_oss --provider deepseek \
+     --model "deepseek-chat"
+
+# Stable paid — Together
 export TOGETHER_API_KEY="..."
 bash .opencode/scripts/configure-backend.sh \
      --tier hosted_oss --provider together \
@@ -123,14 +140,23 @@ move to `private_local` or `enterprise`.
 
 ## `proprietary` — max capability, vendor-bound
 
-Anthropic Claude or OpenAI GPT. Use when ceiling matters more than data
-locality and you accept the vendor's standard terms.
+Anthropic Claude, OpenAI GPT, or Google AI Studio (Gemini). Use when
+ceiling matters more than data locality and you accept the vendor's
+standard terms. (Gemini lives here despite the "OSS-friendly" branding
+because the weights are closed; the runtime is just hosted.)
 
 ```bash
+# Anthropic
 export ANTHROPIC_API_KEY="..."
 bash .opencode/scripts/configure-backend.sh \
      --tier proprietary --provider anthropic \
      --model claude-opus-4-7
+
+# Google AI Studio (Gemini)
+export GOOGLE_API_KEY="..."
+bash .opencode/scripts/configure-backend.sh \
+     --tier proprietary --provider google_aistudio \
+     --model gemini-2.5-flash
 ```
 
 ## What the wizard itself sends

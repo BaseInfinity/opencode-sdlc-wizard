@@ -165,6 +165,38 @@ else
   pass "cross-model-review SKILL.md no longer quotes stale DeepSeek price"
 fi
 
+# v0.8.8 — AGENTS.md privacy-tier table is the user-facing canonical
+# tier reference (it's the file OpenCode auto-loads). Like install.sh
+# (v0.8.4), setup-wizard SKILL.md (v0.8.6), and cross-model-review
+# SKILL.md (v0.8.7), it drifted past v0.8.0's expanded picker.
+AGENTS="$REPO_ROOT/AGENTS.md"
+missing=""
+for token in cerebras deepseek nvidia mlx google_aistudio; do
+  if ! grep -qiE -- "$token" "$AGENTS"; then
+    missing="$missing $token"
+  fi
+done
+if [ -z "$missing" ]; then
+  pass "AGENTS.md tier table covers v0.8.0 providers"
+else
+  fail "AGENTS.md tier table missing tokens:$missing"
+fi
+
+# v0.8.8 — PRIVACY.md is the deeper tier walkthrough and must match
+# the AGENTS.md summary table. Same drift family.
+PRIVACY="$REPO_ROOT/PRIVACY.md"
+missing=""
+for token in cerebras deepseek nvidia mlx google_aistudio; do
+  if ! grep -qiE -- "$token" "$PRIVACY"; then
+    missing="$missing $token"
+  fi
+done
+if [ -z "$missing" ]; then
+  pass "PRIVACY.md tier walkthroughs cover v0.8.0 providers"
+else
+  fail "PRIVACY.md tier walkthroughs missing tokens:$missing"
+fi
+
 echo ""
 echo "=== Results: $PASS passed, $FAIL failed ==="
 [ "$FAIL" -eq 0 ] || exit 1
