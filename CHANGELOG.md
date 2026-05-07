@@ -2,6 +2,40 @@
 
 All notable changes to opencode-sdlc-wizard.
 
+## [0.8.5] - 2026-05-06
+
+### Fixed — schema validator emits domain-mismatch hint on foreign-domain artifacts
+
+`validate-review-artifact.js` previously printed only generic
+`required field missing` errors when a research- or persuasion-domain
+handoff was validated against the code-review schema. Caught during
+the `states-project-research` consumption test: a pre-existing
+research-review handoff with `topic` / `audience` / `stakes` produced
+5 missing-required errors with no signal that the schema might just
+be wrong for the artifact category.
+
+Heuristic added to `scripts/validate-review-artifact.js`:
+
+- After validation fails, count missing top-level required fields and
+  the presence of any foreign-domain markers (`topic`, `audience`,
+  `stakes`, `research_question`, `claim`, `argument`, `manuscript`,
+  `paper`, `theme`, `narrative`).
+- If `≥3 missing required` AND `≥1 foreign marker present`, emit a
+  single `DOMAIN HINT:` line on stderr **before** the per-field error
+  list. Tells the user the artifact looks like a non-code-review
+  category and to check the schema choice.
+- No behavior change for legit code-review artifacts (verified with
+  T32: partially-filled code-review handoff produces no hint, T33:
+  valid handoff with forward-compat extras still validates clean).
+
+### Tests
+
+- `test-review-schemas.sh` adds T31/T32/T33: foreign-domain triggers
+  hint, partial code-review does not, valid extras-laden handoff
+  validates without false positive.
+- 33/33 review-schema tests green (was 30/30).
+- Full suite: 293/11 (was 290/11).
+
 ## [0.8.4] - 2026-05-06
 
 ### Fixed — install.sh "Next steps" hint refreshed for v0.8.x picker
