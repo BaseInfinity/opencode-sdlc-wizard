@@ -2,6 +2,39 @@
 
 All notable changes to opencode-sdlc-wizard.
 
+## [0.8.4] - 2026-05-06
+
+### Fixed — install.sh "Next steps" hint refreshed for v0.8.x picker
+
+The post-install banner had drifted: it still printed the v0.2.0 tier
+list (Ollama / LM Studio / llama.cpp / vLLM, Azure / Bedrock,
+Together / Groq / OpenRouter, Anthropic / OpenAI), missing every
+provider added since v0.8.0. Caught during the
+`states-project-research` consumption test — fresh installs were
+sending users to a stale provider menu while the real picker offered
+five more options.
+
+Fixes in `install.sh`:
+
+- `private_local` row gains `mlx` (Apple Silicon native, v0.8.0)
+- `hosted_oss` row gains `cerebras` / `deepseek` / `nvidia_nim` (v0.8.0)
+- `proprietary` row gains `google_aistudio` (v0.8.0)
+- New `--free-tier-first` example line so users discover the bias flag
+  without reading `--help`
+- Cost guidance link to `docs/cost-ladder.md` (v0.8.0) — the doc
+  exists in the bundle but nothing pointed to it from the install path
+- `$0 / $20 / $200` literals escaped (`\$`) — they would have been
+  expanded as positional parameters and tripped `set -u` in the
+  unquoted heredoc
+
+### Tests
+
+- `test-install.sh` adds T9: assert next-steps text mentions every
+  provider the picker emits + `--free-tier-first` + `cost-ladder.md`.
+  This is the regression gate so the banner can't drift again.
+- 14/14 install behavior tests green (was 13/13).
+- Full suite: 290/11 (was 289/11).
+
 ## [0.8.3] - 2026-05-06
 
 ### Fixed — release workflow unblocked

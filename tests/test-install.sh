@@ -146,6 +146,31 @@ else
     fail "invalid flag silently accepted"
 fi
 
+# 9. Next-steps hint stays current with the picker — must list every provider
+#    detect-backends.sh emits, plus --free-tier-first flag and cost-ladder ref.
+#    States-project-research consumption test (2026-05-06) caught the v0.2.0
+#    list still being printed after v0.8.0 added 5 providers.
+target="$(mk_target)"
+out="$(bash "$INSTALLER" --target-dir "$target" 2>&1)"
+missing=""
+for token in \
+    "ollama" "lm_studio" "llama.cpp" "vllm" "mlx" \
+    "azure" "bedrock" \
+    "together" "groq" "openrouter" "cerebras" "deepseek" "nvidia" \
+    "anthropic" "openai" "google" \
+    "--free-tier-first" \
+    "cost-ladder.md"; do
+    if ! echo "$out" | grep -qi -- "$token"; then
+        missing="$missing $token"
+    fi
+done
+if [ -z "$missing" ]; then
+    pass "next-steps hint mentions all picker providers + flag + cost-ladder ref"
+else
+    fail "next-steps hint missing tokens:$missing"
+fi
+rm -rf "$target"
+
 echo ""
 echo "=== Results: $PASSED passed, $FAILED failed ==="
 [ "$FAILED" -gt 0 ] && exit 1
