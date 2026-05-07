@@ -120,7 +120,12 @@ else
   fail "validator on unparseable JSON returned rc=$rc, expected 2"
 fi
 
-# T13: live handoff.json validates
+# T13: live handoff.json validates (when present)
+# Validate-if-present semantics: absence is not a failure mode. A clean
+# checkout (CI runner, fresh clone) won't have an in-flight handoff. Local
+# dev sessions in the middle of a review WILL have one and we want to
+# catch schema regressions then. `.reviews/handoff.json` is currently
+# tracked but the same file may also be gitignored on consumer installs.
 if [ -f "$LIVE_HANDOFF" ]; then
   set +e
   out="$("$VALIDATOR" "$LIVE_HANDOFF" "$HANDOFF_SCHEMA" 2>&1)"
@@ -132,10 +137,13 @@ if [ -f "$LIVE_HANDOFF" ]; then
     fail "live .reviews/handoff.json failed validation (rc=$rc): $out"
   fi
 else
-  fail "live .reviews/handoff.json not present (cannot run regression check)"
+  pass "live .reviews/handoff.json absent — skipped (validate-if-present)"
 fi
 
-# T14: live response.json validates
+# T14: live response.json validates (when present)
+# Per .gitignore, `.reviews/response.json` is per-cycle scratch and not
+# tracked. Absence is the default in CI; only enforce schema validation
+# when a maintainer is mid-review locally.
 if [ -f "$LIVE_RESPONSE" ]; then
   set +e
   out="$("$VALIDATOR" "$LIVE_RESPONSE" "$RESPONSE_SCHEMA" 2>&1)"
@@ -147,7 +155,7 @@ if [ -f "$LIVE_RESPONSE" ]; then
     fail "live .reviews/response.json failed validation (rc=$rc): $out"
   fi
 else
-  fail "live .reviews/response.json not present (cannot run regression check)"
+  pass "live .reviews/response.json absent — skipped (validate-if-present)"
 fi
 
 # Negative-case fixtures
