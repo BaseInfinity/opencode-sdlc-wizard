@@ -2,6 +2,51 @@
 
 All notable changes to opencode-sdlc-wizard.
 
+## [0.8.9] - 2026-05-08
+
+### Fixed — `cross-model-review.sh` wrapper alias parity with configure-backend.sh
+
+Codex pre-ship review of the v0.8.x stack caught a real invocation
+bug introduced by v0.8.7's SKILL.md drift sweep. The skill's Step 2
+table and Step 3 examples advertised `nvidia_nim` and `google_aistudio`
+as reviewer providers, but `scripts/cross-model-review.sh`'s alias
+`case` block hadn't been extended. `configure-backend.sh` aliases
+`nvidia_nim → nvidia` and `google_aistudio → google` (writes the
+corresponding `provider.nvidia` / `provider.google` blocks in
+`opencode.json`). The wrapper's wildcard fallthrough was passing
+`nvidia_nim` and `google_aistudio` through verbatim, which built
+model pins (`nvidia_nim/<model>` / `google_aistudio/<model>`) that
+didn't match the registered provider blocks → silent
+provider-not-found from OpenCode at run time.
+
+- `scripts/cross-model-review.sh`: alias `case` block now mirrors
+  configure-backend.sh's canonical mapping:
+  - `nvidia_nim | nvidia-nim | nvidia` → `nvidia`
+  - `google_aistudio | google | gemini` → `google`
+- Pass-through list also explicitly names the new v0.8.0 canonical
+  IDs (`cerebras`, `deepseek`, `mlx`) — they were already correct via
+  the wildcard, but documenting them stops a future maintainer from
+  thinking they need an alias.
+
+### Tests
+
+- `tests/test-cross-model-review.sh` adds T11–T14:
+  - T11: `nvidia_nim` resolves to `nvidia/<model>` in the opencode pin
+  - T12: `google_aistudio` resolves to `google/<model>`
+  - T13: `gemini` resolves to `google/<model>`
+  - T14: canonical `cerebras`/`deepseek`/`mlx` pass through unchanged
+- 305 tests total across 11 suites (was 301 in v0.8.8).
+
+### Note on the v0.8.0 drift family
+
+This is the fifth surface in the v0.8.0 picker drift family
+(install.sh in v0.8.4, validator domain in v0.8.5, setup-wizard
+SKILL.md in v0.8.6, cross-model-review SKILL.md in v0.8.7,
+AGENTS.md+PRIVACY.md in v0.8.8) — and the only one that was an actual
+runtime bug rather than documentation drift. Caught by cross-model
+review before ship. The drift family is now closed across both
+documentation surfaces and runtime invocation.
+
 ## [0.8.8] - 2026-05-06
 
 ### Fixed — AGENTS.md + PRIVACY.md tier drift (final v0.8.0 sweep)

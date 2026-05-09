@@ -78,7 +78,9 @@ case "$REVIEWER_PROVIDER" in
   azure|azure_openai)               REVIEWER_PROVIDER="azure" ;;
   lm_studio|lmstudio)               REVIEWER_PROVIDER="lmstudio" ;;
   llama_cpp|llamacpp)               REVIEWER_PROVIDER="llamacpp" ;;
-  ollama|vllm|groq|openrouter|anthropic|openai) ;;  # already canonical
+  nvidia_nim|nvidia-nim|nvidia)     REVIEWER_PROVIDER="nvidia" ;;
+  google_aistudio|google|gemini)    REVIEWER_PROVIDER="google" ;;
+  ollama|vllm|groq|openrouter|anthropic|openai|cerebras|deepseek|mlx) ;;  # already canonical
   *) ;;  # pass through unknown ids — opencode will reject if invalid
 esac
 

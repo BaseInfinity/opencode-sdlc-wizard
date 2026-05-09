@@ -177,6 +177,71 @@ if [ -x "$SCRIPT" ]; then
   fi
 fi
 
+# v0.8.9 — wrapper alias parity with configure-backend.sh.
+# v0.8.0 added cerebras / deepseek / nvidia_nim / google_aistudio / mlx as
+# picker providers; v0.8.7 advertised them in cross-model-review SKILL.md.
+# But configure-backend.sh aliases nvidia_nim → nvidia and
+# google_aistudio → google when writing opencode.json. The wrapper's case
+# statement was missing those mappings, so a user passing
+# `--reviewer-provider nvidia_nim` would silently build a model pin
+# (`nvidia_nim/<model>`) that doesn't match the provider block opencode.json
+# actually has (`provider.nvidia`). Same drift family as v0.8.4 / v0.8.7.
+# Codex round-1 (v0.8.x stack review) caught this.
+
+# T11: nvidia_nim alias → nvidia (matches configure-backend's provider block)
+if [ -x "$SCRIPT" ]; then
+  T="$TMP_ROOT/t11"; make_target "$T"
+  (cd "$T" && OPENCODE_STUB_LOG="$T/stub.log" PATH="$T/stubs:$PATH" \
+    "$SCRIPT" --reviewer-provider nvidia_nim --reviewer-model deepseek-ai/deepseek-r1 >/dev/null 2>&1) || true
+  if [ -f "$T/stub.log" ] && grep -qE "(^|[^a-z])nvidia/deepseek-ai/deepseek-r1" "$T/stub.log"; then
+    pass "alias 'nvidia_nim' resolves to canonical 'nvidia' in --model arg"
+  else
+    fail "alias 'nvidia_nim' did NOT resolve to 'nvidia' (expected nvidia/deepseek-ai/deepseek-r1)"
+    cat "$T/stub.log" 2>/dev/null | head -3 >&2 || true
+  fi
+fi
+
+# T12: google_aistudio alias → google
+if [ -x "$SCRIPT" ]; then
+  T="$TMP_ROOT/t12"; make_target "$T"
+  (cd "$T" && OPENCODE_STUB_LOG="$T/stub.log" PATH="$T/stubs:$PATH" \
+    "$SCRIPT" --reviewer-provider google_aistudio --reviewer-model gemini-2.5-flash >/dev/null 2>&1) || true
+  if [ -f "$T/stub.log" ] && grep -qE "(^|[^a-z])google/gemini-2.5-flash" "$T/stub.log"; then
+    pass "alias 'google_aistudio' resolves to canonical 'google' in --model arg"
+  else
+    fail "alias 'google_aistudio' did NOT resolve to 'google' (expected google/gemini-2.5-flash)"
+    cat "$T/stub.log" 2>/dev/null | head -3 >&2 || true
+  fi
+fi
+
+# T13: gemini alias → google (configure-backend.sh also aliases gemini→google)
+if [ -x "$SCRIPT" ]; then
+  T="$TMP_ROOT/t13"; make_target "$T"
+  (cd "$T" && OPENCODE_STUB_LOG="$T/stub.log" PATH="$T/stubs:$PATH" \
+    "$SCRIPT" --reviewer-provider gemini --reviewer-model gemini-2.5-pro >/dev/null 2>&1) || true
+  if [ -f "$T/stub.log" ] && grep -qE "(^|[^a-z])google/gemini-2.5-pro" "$T/stub.log"; then
+    pass "alias 'gemini' resolves to canonical 'google' in --model arg"
+  else
+    fail "alias 'gemini' did NOT resolve to 'google'"
+    cat "$T/stub.log" 2>/dev/null | head -3 >&2 || true
+  fi
+fi
+
+# T14: canonical providers cerebras/deepseek/mlx pass through unchanged
+for canonical in cerebras deepseek mlx; do
+  if [ -x "$SCRIPT" ]; then
+    T="$TMP_ROOT/t14-$canonical"; make_target "$T"
+    (cd "$T" && OPENCODE_STUB_LOG="$T/stub.log" PATH="$T/stubs:$PATH" \
+      "$SCRIPT" --reviewer-provider "$canonical" --reviewer-model TestModel >/dev/null 2>&1) || true
+    if [ -f "$T/stub.log" ] && grep -qE "(^|[^a-z])${canonical}/TestModel" "$T/stub.log"; then
+      pass "canonical '$canonical' passes through unchanged"
+    else
+      fail "canonical '$canonical' was rewritten to something else"
+      cat "$T/stub.log" 2>/dev/null | head -3 >&2 || true
+    fi
+  fi
+done
+
 echo ""
 echo "=== Results: $PASS passed, $FAIL failed ==="
 [ "$FAIL" -eq 0 ] || exit 1
