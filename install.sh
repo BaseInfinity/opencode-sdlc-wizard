@@ -54,6 +54,27 @@ echo "OpenCode SDLC Wizard v$WIZARD_VERSION"
 echo "Target: $TARGET_DIR"
 echo ""
 
+# Sibling-wizard detection — two SDLC wizards in one repo is supported (each
+# writes to its own directory), but worth surfacing so users don't expect a
+# merge of behavior. Caught during the states-project-research consumption
+# test where the repo already had claude-sdlc-wizard installed.
+SIBLINGS=""
+if [ -d "$TARGET_DIR/.claude/skills/sdlc" ] || \
+   [ -f "$TARGET_DIR/CLAUDE_CODE_SDLC_WIZARD.md" ]; then
+  SIBLINGS="${SIBLINGS}  - claude-sdlc-wizard (.claude/)
+"
+fi
+if [ -d "$TARGET_DIR/.codex" ]; then
+  SIBLINGS="${SIBLINGS}  - codex-sdlc-wizard (.codex/)
+"
+fi
+if [ -n "$SIBLINGS" ]; then
+  echo "Note: detected sibling SDLC wizard installation(s):"
+  printf '%s' "$SIBLINGS"
+  echo "  opencode-sdlc-wizard installs to .opencode/ — both can coexist."
+  echo ""
+fi
+
 # Required source files in this repo (the bundle)
 REQUIRED_SOURCES=(
   "AGENTS.md"
@@ -206,13 +227,18 @@ Next steps:
   2. The plugin (.opencode/plugins/sdlc-wizard.js) auto-loads at session start
      and shells out to .opencode/hooks/ for SDLC enforcement.
   3. (Optional) Pick a backend — privacy-first picker:
-       bash .opencode/scripts/detect-backends.sh         # see what's available
+       bash .opencode/scripts/detect-backends.sh                    # what's available
+       bash .opencode/scripts/detect-backends.sh --free-tier-first  # bias to free tiers
        bash .opencode/scripts/configure-backend.sh \\
             --tier private_local --provider ollama \\
             --model qwen2.5-coder:32b
-     Tiers: private_local (Ollama / LM Studio / llama.cpp / vLLM),
-            enterprise (Azure / Bedrock), hosted_oss (Together / Groq /
-            OpenRouter), proprietary (Anthropic / OpenAI). See PRIVACY.md.
+     Tiers (see PRIVACY.md for the privacy contract per tier):
+       private_local: ollama / lm_studio / llama.cpp / vllm / mlx
+       enterprise:    azure_openai / aws_bedrock
+       hosted_oss:    together / groq / openrouter / cerebras / deepseek / nvidia_nim
+       proprietary:   anthropic / openai / google_aistudio
+     Cost guidance for each path: docs/cost-ladder.md (\$0 / \$20 / \$200 monthly
+     budgets, per-job picker, capability-floor table).
   4. Run skill({ name: "sdlc" }) inside OpenCode to invoke the SDLC workflow.
 
 The installer does not write opencode.json on its own — backend selection is

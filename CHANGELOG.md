@@ -2,6 +2,248 @@
 
 All notable changes to opencode-sdlc-wizard.
 
+## [0.8.9] - 2026-05-08
+
+### Fixed — `cross-model-review.sh` wrapper alias parity with configure-backend.sh
+
+Codex pre-ship review of the v0.8.x stack caught a real invocation
+bug introduced by v0.8.7's SKILL.md drift sweep. The skill's Step 2
+table and Step 3 examples advertised `nvidia_nim` and `google_aistudio`
+as reviewer providers, but `scripts/cross-model-review.sh`'s alias
+`case` block hadn't been extended. `configure-backend.sh` aliases
+`nvidia_nim → nvidia` and `google_aistudio → google` (writes the
+corresponding `provider.nvidia` / `provider.google` blocks in
+`opencode.json`). The wrapper's wildcard fallthrough was passing
+`nvidia_nim` and `google_aistudio` through verbatim, which built
+model pins (`nvidia_nim/<model>` / `google_aistudio/<model>`) that
+didn't match the registered provider blocks → silent
+provider-not-found from OpenCode at run time.
+
+- `scripts/cross-model-review.sh`: alias `case` block now mirrors
+  configure-backend.sh's canonical mapping:
+  - `nvidia_nim | nvidia-nim | nvidia` → `nvidia`
+  - `google_aistudio | google | gemini` → `google`
+- Pass-through list also explicitly names the new v0.8.0 canonical
+  IDs (`cerebras`, `deepseek`, `mlx`) — they were already correct via
+  the wildcard, but documenting them stops a future maintainer from
+  thinking they need an alias.
+
+### Tests
+
+- `tests/test-cross-model-review.sh` adds T11–T14:
+  - T11: `nvidia_nim` resolves to `nvidia/<model>` in the opencode pin
+  - T12: `google_aistudio` resolves to `google/<model>`
+  - T13: `gemini` resolves to `google/<model>`
+  - T14: canonical `cerebras`/`deepseek`/`mlx` pass through unchanged
+- 305 tests total across 11 suites (was 301 in v0.8.8).
+
+### Note on the v0.8.0 drift family
+
+This is the fifth surface in the v0.8.0 picker drift family
+(install.sh in v0.8.4, validator domain in v0.8.5, setup-wizard
+SKILL.md in v0.8.6, cross-model-review SKILL.md in v0.8.7,
+AGENTS.md+PRIVACY.md in v0.8.8) — and the only one that was an actual
+runtime bug rather than documentation drift. Caught by cross-model
+review before ship. The drift family is now closed across both
+documentation surfaces and runtime invocation.
+
+## [0.8.8] - 2026-05-06
+
+### Fixed — AGENTS.md + PRIVACY.md tier drift (final v0.8.0 sweep)
+
+Last surface in the v0.8.0 provider drift family. The user-facing
+AGENTS.md tier table and the deeper PRIVACY.md tier walkthroughs both
+still listed only the v0.2.0 providers. Since AGENTS.md is what
+OpenCode auto-loads at session start, this was the most user-visible
+of the four drift surfaces.
+
+**`AGENTS.md`** privacy-tier table updated:
+- `private_local` row gains MLX (Apple Silicon)
+- `hosted_oss` row gains Cerebras / DeepSeek direct / NVIDIA NIM
+- `proprietary` row gains Google AI Studio (`google_aistudio`)
+- New `--free-tier-first` example before the configure call
+- New cross-link to `docs/cost-ladder.md`
+
+**`PRIVACY.md`** tier walkthroughs updated:
+- private_local runtime table gains MLX row with default URL +
+  suggested model
+- hosted_oss provider table gains 3 rows (Cerebras / DeepSeek /
+  NVIDIA NIM) plus a Notes column flagging free tier and pricing
+- hosted_oss configure example now shows free-tier path (Cerebras),
+  cheapest paid path (DeepSeek direct), and the original Together
+  example
+- proprietary section gains Google AI Studio configure example
+  with the closed-weights caveat
+
+### Tests
+
+- `test-doc-templates.sh` adds 2 final drift gates: AGENTS.md tier
+  table covers v0.8.0 providers + PRIVACY.md tier walkthroughs cover
+  same. Catches the next regression of this kind.
+- 29/29 doc-template tests green (was 27/27).
+- Full suite: 301/11 (was 299/11).
+
+**v0.8.0 drift family closed.** Four surfaces in total were carrying
+the same drift — install.sh next-steps (v0.8.4), validator domain
+mismatch (v0.8.5, related), setup-wizard SKILL.md (v0.8.6),
+cross-model-review SKILL.md (v0.8.7), and now AGENTS.md +
+PRIVACY.md (v0.8.8). Each surface now has a regression gate.
+
+## [0.8.7] - 2026-05-06
+
+### Fixed — cross-model-review SKILL.md provider drift + stale DeepSeek price
+
+Audit-driven completion of the v0.8.0 provider rollout: this is the
+third surface (after install.sh in v0.8.4 and setup-wizard SKILL.md
+in v0.8.6) carrying the same drift. The Step 2 reviewer table still
+recommended `togetherai/deepseek-ai/DeepSeek-V3` as the default at
+`~$0.27/M` — both the model id and the price had moved.
+
+Updates to `skills/cross-model-review/SKILL.md`:
+
+- **Step 2 reviewer table** gains four rows for v0.8.0 providers:
+  - `private_local/mlx` — Apple Silicon native (Qwen2.5-Coder-32B 4bit)
+  - `hosted_oss/cerebras` — free tier, ~2000 tok/s, gpt-oss-120b /
+    qwen-3-235b-a22b-instruct-2507
+  - `hosted_oss/deepseek` direct — cheapest paid hosted reasoning
+    (~$0.14/M cache-miss, deepseek-chat)
+  - `hosted_oss/nvidia_nim` — free credits at build.nvidia.com
+- **Stale Together row** kept but model bumped to `DeepSeek-V3.1`
+  (current) and price callout dropped from this row (it was wrong,
+  and the cheaper deepseek-direct row sits next to it now).
+- **Default suggestion** no longer pins `togetherai/DeepSeek-V3`.
+  Points users to `docs/cost-ladder.md` for the per-budget pick and
+  names three common defaults (cerebras free, deepseek cheap-paid,
+  ollama local).
+- **Step 3 examples** now show two paths — the free-tier Cerebras
+  default and the cheapest-paid DeepSeek-direct path. Old Together
+  example removed.
+
+### Tests
+
+- `test-doc-templates.sh` adds two gates against
+  `cross-model-review/SKILL.md`:
+  - Each v0.8.0 provider (cerebras / deepseek / nvidia_nim) appears
+    as a Step 2 table row OR a Step 3 `--reviewer-provider` flag —
+    avoids coincidental matches on legacy model names like
+    `deepseek-coder-v2:16b`.
+  - Stale `~$0.27/M` DeepSeek price string must not reappear.
+- 27/27 doc-template tests green (was 25/25).
+- Full suite: 299/11 (was 297/11).
+
+## [0.8.6] - 2026-05-06
+
+### Fixed — sibling-wizard awareness + setup-wizard skill provider drift
+
+Two issues in the same release because they share a root cause: **drift
+between v0.8.0's expanded picker and the surfaces that describe it**.
+
+**Sibling-wizard awareness in install.sh.** Caught during the
+`states-project-research` consumption test where the repo already had
+`claude-sdlc-wizard` installed. `install.sh` happily wrote `.opencode/`
+without acknowledging the existing `.claude/` install — leaving the
+user wondering whether the wizards were merging behavior or stomping
+each other (they coexist; one writes `.opencode/`, the other `.claude/`).
+
+- New detection block runs right after the version banner.
+- Looks for `.claude/skills/sdlc/` or `CLAUDE_CODE_SDLC_WIZARD.md`
+  (claude-sdlc-wizard) and `.codex/` (codex-sdlc-wizard).
+- Prints a single-paragraph "Note: detected sibling SDLC wizard
+  installation(s)" with the dirs found, then continues install.
+- Non-blocking; informational only.
+
+**Setup-wizard SKILL.md provider drift.** Same root cause as v0.8.4's
+`install.sh` next-steps drift — the skill still listed the v0.2.0 tier
+providers (Ollama / LM Studio / llama.cpp / vLLM, Together / Groq /
+OpenRouter, Anthropic / OpenAI). Five providers added in v0.8.0 (MLX,
+Cerebras, DeepSeek direct, NVIDIA NIM, Google AI Studio) were missing.
+
+- `private_local` row gains MLX (Apple Silicon native).
+- `hosted_oss` row gains Cerebras / DeepSeek direct / NVIDIA NIM,
+  with a free-tier callout pointing to `docs/cost-ladder.md`.
+- `proprietary` row gains Google AI Studio (Gemini, closed weights).
+- Step 2 now shows the `--free-tier-first` flag inline so users see
+  it without reading `--help`.
+
+### Tests
+
+- `test-install.sh` adds T10/T11/T12: claude-sdlc-wizard detected,
+  codex-sdlc-wizard detected, fresh empty target produces no false
+  sibling detection.
+- `test-doc-templates.sh` adds a setup-wizard provider drift gate:
+  asserts every v0.8.x picker provider + `--free-tier-first` are
+  named in the SKILL.md.
+- 17/17 install behavior tests green (was 14/14).
+- 25/25 doc template tests green (was 24/24).
+- Full suite: 297/11 (was 293/11).
+
+## [0.8.5] - 2026-05-06
+
+### Fixed — schema validator emits domain-mismatch hint on foreign-domain artifacts
+
+`validate-review-artifact.js` previously printed only generic
+`required field missing` errors when a research- or persuasion-domain
+handoff was validated against the code-review schema. Caught during
+the `states-project-research` consumption test: a pre-existing
+research-review handoff with `topic` / `audience` / `stakes` produced
+5 missing-required errors with no signal that the schema might just
+be wrong for the artifact category.
+
+Heuristic added to `scripts/validate-review-artifact.js`:
+
+- After validation fails, count missing top-level required fields and
+  the presence of any foreign-domain markers (`topic`, `audience`,
+  `stakes`, `research_question`, `claim`, `argument`, `manuscript`,
+  `paper`, `theme`, `narrative`).
+- If `≥3 missing required` AND `≥1 foreign marker present`, emit a
+  single `DOMAIN HINT:` line on stderr **before** the per-field error
+  list. Tells the user the artifact looks like a non-code-review
+  category and to check the schema choice.
+- No behavior change for legit code-review artifacts (verified with
+  T32: partially-filled code-review handoff produces no hint, T33:
+  valid handoff with forward-compat extras still validates clean).
+
+### Tests
+
+- `test-review-schemas.sh` adds T31/T32/T33: foreign-domain triggers
+  hint, partial code-review does not, valid extras-laden handoff
+  validates without false positive.
+- 33/33 review-schema tests green (was 30/30).
+- Full suite: 293/11 (was 290/11).
+
+## [0.8.4] - 2026-05-06
+
+### Fixed — install.sh "Next steps" hint refreshed for v0.8.x picker
+
+The post-install banner had drifted: it still printed the v0.2.0 tier
+list (Ollama / LM Studio / llama.cpp / vLLM, Azure / Bedrock,
+Together / Groq / OpenRouter, Anthropic / OpenAI), missing every
+provider added since v0.8.0. Caught during the
+`states-project-research` consumption test — fresh installs were
+sending users to a stale provider menu while the real picker offered
+five more options.
+
+Fixes in `install.sh`:
+
+- `private_local` row gains `mlx` (Apple Silicon native, v0.8.0)
+- `hosted_oss` row gains `cerebras` / `deepseek` / `nvidia_nim` (v0.8.0)
+- `proprietary` row gains `google_aistudio` (v0.8.0)
+- New `--free-tier-first` example line so users discover the bias flag
+  without reading `--help`
+- Cost guidance link to `docs/cost-ladder.md` (v0.8.0) — the doc
+  exists in the bundle but nothing pointed to it from the install path
+- `$0 / $20 / $200` literals escaped (`\$`) — they would have been
+  expanded as positional parameters and tripped `set -u` in the
+  unquoted heredoc
+
+### Tests
+
+- `test-install.sh` adds T9: assert next-steps text mentions every
+  provider the picker emits + `--free-tier-first` + `cost-ladder.md`.
+  This is the regression gate so the banner can't drift again.
+- 14/14 install behavior tests green (was 13/13).
+- Full suite: 290/11 (was 289/11).
+
 ## [0.8.3] - 2026-05-06
 
 ### Fixed — release workflow unblocked

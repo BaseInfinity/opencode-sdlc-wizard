@@ -162,6 +162,51 @@ function validate(value, schema, root, ptr, errors) {
   }
 }
 
+// Foreign-domain markers — top-level fields commonly seen in research,
+// persuasion, and manuscript review handoffs but never in a code-review
+// handoff. If the artifact carries one of these AND is missing several
+// required code-review fields, the validator emits a DOMAIN HINT before the
+// per-field errors so users don't read 5+ generic "required field missing"
+// lines without knowing they may have passed the wrong schema.
+//
+// Caught during the states-project-research consumption test — the
+// pre-existing handoff there described an interview-prep research review,
+// not a code review, and the validator gave no signal that the schema
+// might just be wrong for the artifact category.
+const FOREIGN_DOMAIN_MARKERS = [
+  'topic',
+  'audience',
+  'stakes',
+  'research_question',
+  'claim',
+  'argument',
+  'manuscript',
+  'paper',
+  'theme',
+  'narrative',
+];
+
+function maybeDomainHint(artifact, schema, errors) {
+  if (typeOf(artifact) !== 'object' || !Array.isArray(schema.required)) return null;
+  const required = schema.required;
+  const missingRequired = required.filter(
+    (k) => !Object.prototype.hasOwnProperty.call(artifact, k)
+  );
+  if (missingRequired.length < 3) return null;
+  const foreignPresent = FOREIGN_DOMAIN_MARKERS.filter((m) =>
+    Object.prototype.hasOwnProperty.call(artifact, m)
+  );
+  if (foreignPresent.length === 0) return null;
+  return (
+    `DOMAIN HINT: artifact has foreign-domain fields (${foreignPresent.join(', ')}) ` +
+    `and is missing ${missingRequired.length} required code-review fields ` +
+    `(${missingRequired.join(', ')}). ` +
+    `This may be a research/persuasion-domain handoff being validated against ` +
+    `the code-review schema. Check that you're passing the right schema for the ` +
+    `artifact category.`
+  );
+}
+
 function main() {
   const argv = process.argv.slice(2);
   if (argv.length !== 2 || argv.includes('--help') || argv.includes('-h')) {
@@ -177,6 +222,10 @@ function main() {
   if (errors.length === 0) {
     process.stdout.write(`OK ${path.basename(artifactPath)} validates against ${path.basename(schemaPath)}\n`);
     process.exit(0);
+  }
+  const hint = maybeDomainHint(artifact, schema, errors);
+  if (hint) {
+    process.stderr.write(hint + '\n');
   }
   for (const e of errors) {
     process.stderr.write(`FAIL ${e.ptr || '/'} — ${e.reason}\n`);

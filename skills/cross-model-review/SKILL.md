@@ -81,19 +81,27 @@ between sibling repos.
 
 ### Step 2 — Pick a reviewer model
 
-Recommend by tier (privacy-first ordering):
+Recommend by tier (privacy-first ordering). Verify model IDs against
+each provider's live catalog — see `docs/cost-ladder.md` for the
+calibration links and current $0/$20/$200 budget paths.
 
 | Tier | Provider | Model | Strengths |
 |------|----------|-------|-----------|
 | `private_local` | ollama | `qwen2.5-coder:32b` | Code-tuned, runs locally, zero egress |
 | `private_local` | ollama | `deepseek-coder-v2:16b` | Smaller, faster locally |
-| `hosted_oss` | togetherai | `deepseek-ai/DeepSeek-V3` | **Strongest reasoning OSS, ~$0.27/M input** — pennies per review |
-| `hosted_oss` | groq | `llama-3.3-70b-versatile` | Fastest hosted (sub-second), free tier available |
+| `private_local` | mlx | `mlx-community/Qwen2.5-Coder-32B-Instruct-4bit` | Apple Silicon native, fastest local on M-series |
+| `hosted_oss` | cerebras | `gpt-oss-120b` or `qwen-3-235b-a22b-instruct-2507` | **Free tier**, ~2000 tok/s, generous daily quota |
+| `hosted_oss` | deepseek | `deepseek-chat` | **Cheapest hosted reasoning** (~$0.14/M cache-miss), strongest OSS ceiling |
+| `hosted_oss` | nvidia_nim | `deepseek-ai/deepseek-r1` | Free credits at build.nvidia.com, hosts most OSS models |
+| `hosted_oss` | togetherai | `deepseek-ai/DeepSeek-V3.1` | Strong reasoning OSS, drop-in for DeepSeek direct |
+| `hosted_oss` | groq | `llama-3.3-70b-versatile` | Fastest hosted (sub-second), free tier daily reset |
 | `hosted_oss` | openrouter | `qwen/qwen-2.5-coder-32b-instruct` | OpenRouter's gateway routing |
 
-Default suggestion: **`togetherai/deepseek-ai/DeepSeek-V3`** for
-deepest reasoning at minimal cost. Switch to local Ollama when egress
-matters more than ceiling.
+**Default suggestion** depends on the budget bucket — see
+`docs/cost-ladder.md` for $0 / $20 / $200 monthly paths and the per-job
+picker. Common picks: `cerebras/gpt-oss-120b` (free + fastest),
+`deepseek/deepseek-chat` (cheapest paid, strongest reasoning), or
+local `ollama/qwen2.5-coder:32b` when egress is the constraint.
 
 ### Step 3 — Run the review
 
@@ -101,9 +109,17 @@ Invoke the bundled wrapper script (installed at
 `.opencode/scripts/cross-model-review.sh` in target repos):
 
 ```bash
+# Free tier path — Cerebras gpt-oss-120b (default suggestion when free
+# providers are reachable; fastest review per dollar = $0)
 bash .opencode/scripts/cross-model-review.sh \
-  --reviewer-provider togetherai \
-  --reviewer-model deepseek-ai/DeepSeek-V3 \
+  --reviewer-provider cerebras \
+  --reviewer-model gpt-oss-120b \
+  --reviewer-tier hosted_oss
+
+# Cheapest paid path — DeepSeek direct (strongest hosted reasoning, ~$0.14/M)
+bash .opencode/scripts/cross-model-review.sh \
+  --reviewer-provider deepseek \
+  --reviewer-model deepseek-chat \
   --reviewer-tier hosted_oss
 ```
 
@@ -119,7 +135,7 @@ prompt before consuming OSS tokens:
 
 ```bash
 bash .opencode/scripts/cross-model-review.sh \
-  --reviewer-provider togetherai --reviewer-model X --print-prompt
+  --reviewer-provider cerebras --reviewer-model gpt-oss-120b --print-prompt
 ```
 
 ### Step 4 — Read the verdict

@@ -65,6 +65,9 @@ Pick a backend in two steps:
 # What's reachable on this machine?
 bash .opencode/scripts/detect-backends.sh
 
+# Or bias toward free providers (Cerebras / Groq / NVIDIA NIM / Google AI Studio quotas)
+bash .opencode/scripts/detect-backends.sh --free-tier-first
+
 # Configure the highest-privacy tier you can use
 bash .opencode/scripts/configure-backend.sh \
      --tier private_local --provider ollama \
@@ -75,10 +78,14 @@ Tiers (privacy-first ordering):
 
 | Tier | Where prompts travel | Examples |
 |------|----------------------|----------|
-| `private_local` | Stays on your machine | Ollama, LM Studio, llama.cpp, vLLM |
+| `private_local` | Stays on your machine | Ollama, LM Studio, llama.cpp, vLLM, MLX (Apple Silicon) |
 | `enterprise` | Stays in your tenant | Azure OpenAI, AWS Bedrock |
-| `hosted_oss` | Open weights, third-party host | Together, Groq, OpenRouter |
-| `proprietary` | Vendor-bound | Anthropic, OpenAI |
+| `hosted_oss` | Open weights, third-party host | Together, Groq, OpenRouter, Cerebras, DeepSeek direct, NVIDIA NIM (`nvidia_nim`) |
+| `proprietary` | Vendor-bound | Anthropic, OpenAI, Google AI Studio (`google_aistudio` — Gemini) |
+
+See [`docs/cost-ladder.md`](docs/cost-ladder.md) for $0/$20/$200 monthly
+budget paths and a per-job picker (routine fix vs long-context refactor
+vs CI gate vs security audit).
 
 The SDLC enforcement works on any backend that hits the **capability floor**
 (30B+ code-tuned models — Qwen-Coder, DeepSeek-Coder, Sonnet, Opus, GPT-5.x).

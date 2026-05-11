@@ -146,6 +146,70 @@ else
     fail "invalid flag silently accepted"
 fi
 
+# 9. Next-steps hint stays current with the picker — must list every provider
+#    detect-backends.sh emits, plus --free-tier-first flag and cost-ladder ref.
+#    States-project-research consumption test (2026-05-06) caught the v0.2.0
+#    list still being printed after v0.8.0 added 5 providers.
+target="$(mk_target)"
+out="$(bash "$INSTALLER" --target-dir "$target" 2>&1)"
+missing=""
+for token in \
+    "ollama" "lm_studio" "llama.cpp" "vllm" "mlx" \
+    "azure" "bedrock" \
+    "together" "groq" "openrouter" "cerebras" "deepseek" "nvidia" \
+    "anthropic" "openai" "google" \
+    "--free-tier-first" \
+    "cost-ladder.md"; do
+    if ! echo "$out" | grep -qi -- "$token"; then
+        missing="$missing $token"
+    fi
+done
+if [ -z "$missing" ]; then
+    pass "next-steps hint mentions all picker providers + flag + cost-ladder ref"
+else
+    fail "next-steps hint missing tokens:$missing"
+fi
+rm -rf "$target"
+
+# 10. Dual-stack awareness — when a sibling SDLC wizard (claude-sdlc-wizard
+#     via .claude/skills/sdlc, or codex-sdlc-wizard via .codex/) is already
+#     installed, install.sh prints a heads-up that opencode-sdlc-wizard sits
+#     alongside it. v0.8.6 finding from the states-project-research
+#     consumption test — wizard didn't notice the repo already had a
+#     claude-sdlc-wizard install.
+target="$(mk_target)"
+mkdir -p "$target/.claude/skills/sdlc"
+echo "stub" > "$target/.claude/skills/sdlc/SKILL.md"
+out="$(bash "$INSTALLER" --target-dir "$target" 2>&1)"
+if echo "$out" | grep -qi "claude-sdlc-wizard"; then
+    pass "install detects existing claude-sdlc-wizard and prints heads-up"
+else
+    fail "install missed claude-sdlc-wizard sibling install"
+fi
+rm -rf "$target"
+
+# 11. Codex sibling detection (.codex/ directory)
+target="$(mk_target)"
+mkdir -p "$target/.codex"
+echo "stub" > "$target/.codex/config.toml"
+out="$(bash "$INSTALLER" --target-dir "$target" 2>&1)"
+if echo "$out" | grep -qi "codex-sdlc-wizard"; then
+    pass "install detects existing codex-sdlc-wizard and prints heads-up"
+else
+    fail "install missed codex-sdlc-wizard sibling install"
+fi
+rm -rf "$target"
+
+# 12. No false positive — fresh empty target gets no sibling-detected message
+target="$(mk_target)"
+out="$(bash "$INSTALLER" --target-dir "$target" 2>&1)"
+if echo "$out" | grep -qiE "claude-sdlc-wizard|codex-sdlc-wizard"; then
+    fail "false-positive sibling detection on empty target"
+else
+    pass "fresh target — no false sibling-wizard detection"
+fi
+rm -rf "$target"
+
 echo ""
 echo "=== Results: $PASSED passed, $FAILED failed ==="
 [ "$FAILED" -gt 0 ] && exit 1

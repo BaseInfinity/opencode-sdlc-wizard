@@ -478,6 +478,83 @@ else
   fail "valid test_counts should pass (rc=$rc): $out"
 fi
 
+# T31: domain-mismatch hint on foreign-domain artifact
+# Caught during states-project-research consumption test (2026-05-06):
+# a research-domain handoff with `topic`/`audience`/`stakes` fields and
+# 5 missing required code-review fields produced 5 generic
+# "required field missing" errors with no signal that it's likely a
+# different artifact category. Heuristic: missing >=3 required AND
+# >=1 foreign-domain marker → prepend a "DOMAIN HINT" line.
+HANDOFF_FOREIGN="$TMP_ROOT/handoff-foreign-domain.json"
+cat > "$HANDOFF_FOREIGN" <<'JSON'
+{
+  "review_id": "research-tsp-001",
+  "round": 1,
+  "topic": "Tropical solitary trade-offs in oceanic ecosystems",
+  "audience": "interview panel",
+  "stakes": "high",
+  "research_question": "Does X correlate with Y under condition Z?"
+}
+JSON
+set +e
+out="$("$VALIDATOR" "$HANDOFF_FOREIGN" "$HANDOFF_SCHEMA" 2>&1)"
+rc=$?
+set -e
+if [ "$rc" -eq 1 ] && echo "$out" | grep -qi 'DOMAIN HINT'; then
+  pass "foreign-domain artifact triggers DOMAIN HINT line"
+else
+  fail "DOMAIN HINT not emitted on foreign-domain handoff (rc=$rc): $out"
+fi
+
+# T32: no false positive — partially-filled but otherwise code-review handoff
+# missing one or two required fields should NOT trigger the hint.
+HANDOFF_PARTIAL="$TMP_ROOT/handoff-partial.json"
+cat > "$HANDOFF_PARTIAL" <<'JSON'
+{
+  "review_id": "review-001",
+  "status": "PENDING_REVIEW",
+  "round": 1,
+  "mission": "Review the v0.8.4 install.sh fix.",
+  "success": "Banner mentions every picker provider.",
+  "failure": "Banner still drifted."
+}
+JSON
+set +e
+out="$("$VALIDATOR" "$HANDOFF_PARTIAL" "$HANDOFF_SCHEMA" 2>&1)"
+rc=$?
+set -e
+if [ "$rc" -eq 1 ] && ! echo "$out" | grep -qi 'DOMAIN HINT'; then
+  pass "partially-filled code-review handoff does NOT trigger DOMAIN HINT"
+else
+  fail "false positive DOMAIN HINT on legit code-review (rc=$rc): $out"
+fi
+
+# T33: valid handoff with extra forward-compat props (pr_number etc.) must
+# still pass cleanly — additionalProperties: true at top level is intentional.
+HANDOFF_EXTRA="$TMP_ROOT/handoff-extra-props.json"
+cat > "$HANDOFF_EXTRA" <<'JSON'
+{
+  "review_id": "review-002",
+  "status": "PENDING_REVIEW",
+  "round": 1,
+  "mission": "Review v0.9.0 changes.",
+  "success": "All findings addressed.",
+  "failure": "Reviewer misses subtle bugs.",
+  "review_instructions": "Be strict.",
+  "pr_number": 42,
+  "preflight_path": ".reviews/preflight.md"
+}
+JSON
+set +e
+out="$("$VALIDATOR" "$HANDOFF_EXTRA" "$HANDOFF_SCHEMA" 2>&1)"
+rc=$?
+set -e
+if [ "$rc" -eq 0 ] && ! echo "$out" | grep -qi 'DOMAIN HINT'; then
+  pass "valid handoff with forward-compat extra props validates cleanly (no false hint)"
+else
+  fail "valid handoff with extras failed unexpectedly (rc=$rc): $out"
+fi
+
 echo ""
 echo "=== Results: $PASS passed, $FAIL failed ==="
 [ "$FAIL" -eq 0 ]

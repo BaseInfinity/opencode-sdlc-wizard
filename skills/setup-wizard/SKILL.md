@@ -61,13 +61,18 @@ Run the detector to see what's reachable from this machine:
 
 ```bash
 bash .opencode/scripts/detect-backends.sh
+
+# Or bias the cascade toward free providers (Cerebras / Groq / NVIDIA NIM
+# / Google AI Studio free quotas) when the user has them configured:
+bash .opencode/scripts/detect-backends.sh --free-tier-first
 ```
 
 Output is JSON with four tiers (`private_local`, `enterprise`, `hosted_oss`,
 `proprietary`) plus a `recommendation` string. The recommendation is
 **privacy-first**: it picks the highest-privacy tier with a working backend,
 not the highest model ceiling. Treat the recommendation as the default
-suggestion in Step 3.
+suggestion in Step 3. See `docs/cost-ladder.md` for $0/$20/$200 monthly
+budget paths and per-job picker guidance.
 
 ### Step 3 — Confirm preferences (only the things you cannot infer)
 
@@ -76,13 +81,17 @@ For each unresolved data point, ask once. Do not ask a fixed checklist.
 1. **Backend tier + provider.** Use the detector output as the default.
    Present the tiers concisely with their privacy guarantee:
 
-   - `private_local` — Ollama / LM Studio / llama.cpp / vLLM. Prompts never
-     leave the machine. Recommended for privileged or regulated data.
+   - `private_local` — Ollama / LM Studio / llama.cpp / vLLM / MLX
+     (Apple Silicon native). Prompts never leave the machine.
+     Recommended for privileged or regulated data.
    - `enterprise` — Azure OpenAI / AWS Bedrock / internal gateway. Stays in
      your tenant under contract.
-   - `hosted_oss` — Together / Groq / OpenRouter. Open weights via a
-     third-party host (their logging policy applies).
-   - `proprietary` — Anthropic / OpenAI. Max capability; vendor-bound.
+   - `hosted_oss` — Together / Groq / OpenRouter / Cerebras / DeepSeek
+     direct / NVIDIA NIM (`nvidia_nim`). Open weights via a third-party
+     host; the host's logging policy applies. Cerebras and Groq carry
+     generous free tiers (see `docs/cost-ladder.md`).
+   - `proprietary` — Anthropic / OpenAI / Google AI Studio
+     (`google_aistudio` — Gemini). Max capability; vendor-bound.
 
    Default the question to the detector's `recommendation`. If the user
    accepts, write `opencode.json` with:
