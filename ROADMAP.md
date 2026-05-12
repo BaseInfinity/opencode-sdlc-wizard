@@ -96,24 +96,57 @@ the script logic; live E2E proves the wiring against a real reviewer.
 - ✅ package.json files[] adds docs/ so cost ladder ships in tarball
 - ✅ 8 new picker tests + 7 new doc-template tests (285 total / 11 suites)
 
-## v0.9.0+ candidates (unprioritized)
+## v0.8.4–v0.8.9 — drift family closure — shipped 2026-05-12
 
-- **Mixed-mode skill**: setup-wizard could pin a coder model + a
-  reviewer model in one config (today they're picked separately).
-  This is the natural complement to the cost-ladder doc — automate
-  the hybrid coder/reviewer pattern.
+Cleanup sweep after v0.8.0 added 5 new picker providers + the cost
+ladder doc. Five surfaces drifted past the v0.8.0 picker; each was
+closed with a regression gate.
+
+- ✅ v0.8.4 — `install.sh` "next steps" hint refreshed for v0.8.x picker
+- ✅ v0.8.5 — validator emits `DOMAIN HINT` on foreign-domain artifacts
+- ✅ v0.8.6 — sibling-wizard awareness (.claude/, .codex/) + setup-wizard SKILL.md drift
+- ✅ v0.8.7 — cross-model-review SKILL.md drift + stale DeepSeek price (~$0.27/M → ~$0.14/M)
+- ✅ v0.8.8 — AGENTS.md + PRIVACY.md tier-table + walkthrough drift
+- ✅ v0.8.9 — `cross-model-review.sh` wrapper alias parity with `configure-backend.sh`
+  (only runtime bug in the family — `nvidia_nim`/`google_aistudio` silently broke;
+  caught by codex pre-ship review)
+- ✅ 305 tests across 11 suites
+
+## v0.9.0 — `pick` subcommand (one-shot detect → configure) — shipped 2026-05-12
+
+Codex's direction call: collapse picker UX before Mixed-mode. The
+two-step `detect → configure` workflow becomes
+`npx opencode-sdlc-wizard pick [--free-tier-first] [--tier T] [--provider P]`.
+
+- ✅ `scripts/pick-backend.sh` — orchestrator with PATH-first script lookup
+- ✅ Canonical default-model map per tier/provider (14 entries — single source of truth)
+- ✅ CLI subcommand wired in `cli/bin/opencode-sdlc-wizard.js`
+- ✅ `install.sh` ships pick at `.opencode/scripts/pick-backend.sh`
+- ✅ 25 new tests in `test-pick.sh` (333 total / 12 suites)
+- ✅ Default-model map drift gate (T12) — every v0.8.x picker provider must have a default
+
+## v0.10.0+ candidates (unprioritized)
+
+- **Mixed-mode skill**: pin a coder model + a reviewer model in one
+  config (today they're picked separately). Natural complement to the
+  cost-ladder doc — automate the hybrid coder/reviewer pattern.
+  Becomes `pick --coder ... --reviewer ...` extending v0.9.0.
 - **Auto-nudge integration**: `instructions-loaded-check.sh` hook
   delegates to `check-updates.sh` instead of duplicating the version-
   check logic. Net: one source of truth, fewer drift opportunities.
+- **Copilot Pro+ as first-class provider**: per May-2026 research,
+  Copilot Pro+ ($39/mo) is now the only subscription path to Opus 4.7
+  + GPT-5.x-Codex inside OpenCode (Anthropic killed Claude Pro OAuth
+  in Feb 2026). Add `subscription` tier + Copilot config block.
+- **NIM 1M-context emphasis in cost-ladder**: per research, NVIDIA NIM
+  free tier has 1M-token context on DeepSeek V4 with RPM-only limits —
+  bigger than Cerebras's 8K-64K free cap. Underused in current docs.
 - **OPENCODE_SDLC_WIZARD.md master doc**: equivalent of parent's
   4506-line CLAUDE_CODE_SDLC_WIZARD.md. Heavier lift; defer until
   consumer feedback says it's needed.
 - **Schema versioning + migration**: when v0.7.0 schemas need a
   breaking change, add `$schema_version` field + a migrator the
   validator runs through. Defer until first breaking change is needed.
-- **Auto-picker tool**: pipe detect-backends → configure-backend in
-  one command (`opencode-sdlc-wizard pick --free-tier-first`). The
-  raw scripts work today; this is just sugar.
 
 ## Phase B — backend matrix proof
 

@@ -34,6 +34,7 @@ const repoRoot = path.resolve(__dirname, '..', '..');
 const pkg = JSON.parse(fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf8'));
 const installScript = path.join(repoRoot, 'install.sh');
 const checkScript = path.join(repoRoot, 'scripts', 'check-updates.sh');
+const pickScript = path.join(repoRoot, 'scripts', 'pick-backend.sh');
 
 const args = process.argv.slice(2);
 
@@ -43,6 +44,7 @@ function printHelp() {
 Usage:
   npx opencode-sdlc-wizard init [options]    Install wizard into a target directory
   npx opencode-sdlc-wizard check [options]   Check whether the installed wizard is up-to-date
+  npx opencode-sdlc-wizard pick [options]    Detect + configure a backend in one step
   npx opencode-sdlc-wizard --help            Show this help
   npx opencode-sdlc-wizard --version         Show version
 
@@ -97,6 +99,23 @@ if (subcommand === 'check') {
   });
   if (result.error) {
     process.stderr.write(`Failed to run check-updates.sh: ${result.error.message}\n`);
+    process.exit(2);
+  }
+  process.exit(result.status === null ? 1 : result.status);
+}
+
+if (subcommand === 'pick') {
+  // v0.9.0: one-shot detect→configure. Pass remaining args through to
+  // scripts/pick-backend.sh which orchestrates detect-backends.sh and
+  // configure-backend.sh with a canonical default-model map per provider.
+  const pickArgs = args.filter((a, i) => !(a === 'pick' && args.indexOf('pick') === i));
+  const result = spawnSync('bash', [pickScript, ...pickArgs], {
+    stdio: 'inherit',
+    cwd: process.cwd(),
+    env: process.env,
+  });
+  if (result.error) {
+    process.stderr.write(`Failed to run pick-backend.sh: ${result.error.message}\n`);
     process.exit(2);
   }
   process.exit(result.status === null ? 1 : result.status);

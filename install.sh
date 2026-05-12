@@ -88,6 +88,7 @@ REQUIRED_SOURCES=(
   ".opencode/hooks/precompact-seam-check.sh"
   "scripts/detect-backends.sh"
   "scripts/configure-backend.sh"
+  "scripts/pick-backend.sh"
   "scripts/cross-model-review.sh"
   "scripts/check-updates.sh"
   "scripts/validate-review-artifact.sh"
@@ -125,6 +126,7 @@ declare_target() {
     ".opencode/hooks/"*) echo "$1" ;;
     "scripts/detect-backends.sh") echo ".opencode/scripts/detect-backends.sh" ;;
     "scripts/configure-backend.sh") echo ".opencode/scripts/configure-backend.sh" ;;
+    "scripts/pick-backend.sh") echo ".opencode/scripts/pick-backend.sh" ;;
     "scripts/cross-model-review.sh") echo ".opencode/scripts/cross-model-review.sh" ;;
     "scripts/check-updates.sh") echo ".opencode/scripts/check-updates.sh" ;;
     "scripts/validate-review-artifact.sh") echo ".opencode/scripts/validate-review-artifact.sh" ;;
