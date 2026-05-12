@@ -2,6 +2,104 @@
 
 All notable changes to opencode-sdlc-wizard.
 
+## [0.9.0] - 2026-05-12
+
+### Added — `pick` subcommand (one-shot detect → configure backend)
+
+Codex's v0.9.0 direction call: first-run consumption ergonomics. The
+two-step picker workflow
+
+```bash
+bash .opencode/scripts/detect-backends.sh
+bash .opencode/scripts/configure-backend.sh --tier ... --provider ... --model ...
+```
+
+collapses to
+
+```bash
+npx opencode-sdlc-wizard pick                       # detected highest-privacy
+npx opencode-sdlc-wizard pick --free-tier-first     # detected free-first
+npx opencode-sdlc-wizard pick --tier hosted_oss --provider cerebras   # override
+npx opencode-sdlc-wizard pick --dry-run             # preview, don't write
+```
+
+`pick` runs `detect-backends.sh`, parses the `recommendation` field,
+resolves a canonical floor model for the detected tier/provider, and
+forwards everything to `configure-backend.sh`. Single source of truth
+for the default-model map per provider — shared between the auto-picker,
+docs, and skill examples.
+
+#### Default-model map (every v0.8.x picker provider covered)
+
+| Tier / Provider | Default model |
+|---|---|
+| `private_local / ollama` | `qwen2.5-coder:32b` |
+| `private_local / mlx` | `mlx-community/Qwen2.5-Coder-32B-Instruct-4bit` |
+| `private_local / lm_studio` | `qwen2.5-coder-32b-instruct` |
+| `private_local / llama_cpp` | `qwen2.5-coder-32b-instruct` |
+| `private_local / vllm` | `Qwen/Qwen2.5-Coder-32B-Instruct` |
+| `enterprise / azure_openai` | `gpt-5` |
+| `enterprise / aws_bedrock` | `anthropic.claude-sonnet-4-5-20250929-v1:0` |
+| `hosted_oss / together` | `Qwen/Qwen2.5-Coder-32B-Instruct` |
+| `hosted_oss / groq` | `llama-3.3-70b-versatile` |
+| `hosted_oss / openrouter` | `qwen/qwen-2.5-coder-32b-instruct` |
+| `hosted_oss / cerebras` | `gpt-oss-120b` |
+| `hosted_oss / deepseek` | `deepseek-chat` |
+| `hosted_oss / nvidia_nim` | `deepseek-ai/deepseek-r1` |
+| `proprietary / anthropic` | `claude-opus-4-7` |
+| `proprietary / openai` | `gpt-5` |
+| `proprietary / google_aistudio` | `gemini-2.5-flash` |
+
+Override with `--model <name>` when you want a non-floor pick.
+
+### Added — `scripts/pick-backend.sh`
+
+The orchestrator backing the CLI subcommand. PATH-first script lookup
+so tests can shim either `detect-backends.sh` or `configure-backend.sh`
+without monkey-patching `.opencode/scripts/`. Falls back to sibling
+lookup (where pick lives next to detect+configure in production
+installs) when PATH doesn't have them.
+
+Flags:
+- `--free-tier-first` — bias detector toward free providers
+- `--tier <t>` / `--provider <p>` — skip detection, force tier/provider
+- `--model <m>` — override the canonical default
+- `--target-dir <p>` / `--force` — pass through to configurator
+- `--dry-run` — forwards as `--print-only` (configurator prints merged
+  JSON, doesn't write `opencode.json`)
+
+Exit codes: `0` configured, `2` bad args, `3` detector returned `none`
+and no tier/provider override given, `4` no default model known for
+the resolved tier/provider (pass `--model`).
+
+### Tests
+
+- `tests/test-pick.sh` — 25 tests covering:
+  - Script presence, syntax, `--help`
+  - Detector → configure flow (private_local/ollama default)
+  - `--free-tier-first` sets `DETECT_FREE_TIER_FIRST=1` in detector env
+  - `--tier`/`--provider` override (uses canonical default model)
+  - `--model` override beats canonical default
+  - Detector `none` recommendation → non-zero exit, no configure call
+  - `--dry-run` → `--print-only` translation
+  - `--force` / `--target-dir` pass-through
+  - **T12 drift gate**: every one of the 14 v0.8.x picker
+    tier/provider combinations has a default-model entry
+- `tests/test-bundle-drift.sh` extended to assert
+  `scripts/pick-backend.sh` is shipped by `install.sh`.
+
+**333 tests total across 12 suites** (was 305 / 11 in v0.8.9).
+
+### Note on the v0.8.0 → v0.9.0 throughline
+
+v0.8.0 shipped the four-tier picker. v0.8.4-v0.8.9 closed the picker's
+drift family across 5 doc + 1 runtime surface. v0.9.0 collapses the
+picker UX to a single command — the *actual* first-run friction that
+real consumption attempts surface. Codex's direction call ("ship
+ergonomics before mixed-mode") drove the prioritization; the
+Mixed-mode skill moves to v0.10.0 where `pick --coder ... --reviewer ...`
+becomes the natural extension.
+
 ## [0.8.9] - 2026-05-08
 
 ### Fixed — `cross-model-review.sh` wrapper alias parity with configure-backend.sh
