@@ -46,16 +46,14 @@ jobs:
             exit 1
           }
 
+      # Trusted Publishing (OIDC auth) requires npm >= 11.5.1. node 22
+       # ships npm 10.x; node 24 ships npm 11.x natively, avoiding the
+       # broken `npm install -g npm@latest` self-upgrade path (lost
+       # promise-retry mid-install in CI run 25705962229).
       - uses: actions/setup-node@v5
         with:
-          node-version: 22
+          node-version: 24
           registry-url: https://registry.npmjs.org
-
-      # Trusted Publishing requires npm >= 11.5.1. node 22 ships with 10.x,
-      # so upgrade before publishing. OIDC flow then auths via the trusted
-      # publisher configured at npmjs.com/package/<name>/access.
-      - name: Upgrade npm for Trusted Publishing
-        run: npm install -g npm@latest
 
       - name: Run tests
         run: npm test
