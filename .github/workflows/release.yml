@@ -51,13 +51,17 @@ jobs:
           node-version: 22
           registry-url: https://registry.npmjs.org
 
+      # Trusted Publishing requires npm >= 11.5.1. node 22 ships with 10.x,
+      # so upgrade before publishing. OIDC flow then auths via the trusted
+      # publisher configured at npmjs.com/package/<name>/access.
+      - name: Upgrade npm for Trusted Publishing
+        run: npm install -g npm@latest
+
       - name: Run tests
         run: npm test
 
       - name: Publish to npm
         run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Create GitHub Release
         run: gh release create "$TAG_NAME" --generate-notes
