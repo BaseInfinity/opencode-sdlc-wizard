@@ -90,17 +90,17 @@ egress.
 
 | Slot | Tool | Model | Hardware floor |
 |------|------|-------|----------------|
-| Coder | Ollama | `qwen2.5-coder:32b` | 24GB VRAM (RTX 4090, M-series 32GB+) |
+| Coder | Ollama | `qwen3-coder:30b` | 24GB VRAM (RTX 4090, M-series 32GB+) |
 | Coder | Ollama | `deepseek-coder-v2:16b` | 16GB VRAM (RTX 4070 Ti, M Pro 16GB) |
 | Coder | LM Studio | `Qwen3-Coder-30B-Instruct` | Same as above |
 | Coder | MLX (Apple Silicon) | `mlx-community/Qwen2.5-Coder-32B-Instruct-4bit` | 32GB unified memory; fastest on M-series |
-| Reviewer | Ollama | `qwen2.5-coder:32b` (same instance) | Use sequentially |
+| Reviewer | Ollama | `qwen3-coder:30b` (same instance) | Use sequentially |
 
 ```bash
 # Local + privacy-first
 bash .opencode/scripts/configure-backend.sh \
   --tier private_local --provider ollama \
-  --model qwen2.5-coder:32b
+  --model qwen3-coder:30b
 ```
 
 **Constraints:**

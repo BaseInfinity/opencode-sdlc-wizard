@@ -117,7 +117,7 @@ bash .opencode/scripts/detect-backends.sh --free-tier-first
 # Configure the highest-privacy tier you can use
 bash .opencode/scripts/configure-backend.sh \
      --tier private_local --provider ollama \
-     --model qwen2.5-coder:32b
+     --model qwen3-coder:30b
 
 # Or for a $0/mo free-tier setup (Cerebras free, sub-second inference):
 bash .opencode/scripts/configure-backend.sh \

@@ -116,7 +116,7 @@ fi
 # tested for drift in test-pick.sh T12.
 if [ -z "$MODEL" ]; then
   case "$TIER/$PROVIDER" in
-    private_local/ollama)         MODEL="qwen2.5-coder:32b" ;;
+    private_local/ollama)         MODEL="qwen3-coder:30b" ;;
     private_local/mlx)            MODEL="mlx-community/Qwen2.5-Coder-32B-Instruct-4bit" ;;
     private_local/lm_studio|private_local/lmstudio)
                                   MODEL="qwen2.5-coder-32b-instruct" ;;

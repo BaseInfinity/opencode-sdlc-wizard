@@ -87,7 +87,11 @@ if [ -x "$SCRIPT" ]; then
 fi
 
 # T4: with detector returning private_local/ollama, pick invokes configure
-#     with --tier private_local --provider ollama --model qwen2.5-coder:32b
+#     with --tier private_local --provider ollama --model qwen3-coder:30b
+#     (v0.9.1: bumped from qwen2.5-coder:32b per community-patterns research —
+#     Qwen3-Coder shipped Q4 2025, is the most-shared local config in surveyed
+#     opencode.json examples, and the qwen3-coder:30b tag is published on
+#     ollama.com/library/qwen3-coder/tags.)
 if [ -x "$SCRIPT" ]; then
   T="$TMP_ROOT/t4"; make_target "$T" "private_local/ollama"
   DETECT_STUB_LOG="$T/detect.log"
@@ -97,8 +101,8 @@ if [ -x "$SCRIPT" ]; then
   if [ -f "$CONFIGURE_STUB_LOG" ] \
      && grep -q -- "--tier private_local" "$CONFIGURE_STUB_LOG" \
      && grep -q -- "--provider ollama" "$CONFIGURE_STUB_LOG" \
-     && grep -q -- "--model qwen2.5-coder:32b" "$CONFIGURE_STUB_LOG"; then
-    pass "private_local/ollama → configure --model qwen2.5-coder:32b"
+     && grep -q -- "--model qwen3-coder:30b" "$CONFIGURE_STUB_LOG"; then
+    pass "private_local/ollama → configure --model qwen3-coder:30b"
   else
     fail "private_local/ollama did NOT forward expected args"
     cat "$CONFIGURE_STUB_LOG" 2>/dev/null | head -3 >&2 || true
