@@ -20,7 +20,7 @@ bash .opencode/scripts/detect-backends.sh
 # 2. Configure the highest-privacy option you can use
 bash .opencode/scripts/configure-backend.sh \
      --tier private_local --provider ollama \
-     --model qwen2.5-coder:32b
+     --model qwen3-coder:30b
 ```
 
 The detector probes PATH (Ollama, LM Studio, llama.cpp, vLLM) and env vars
@@ -39,7 +39,7 @@ Supported runtimes (all open-weight, locally hosted):
 
 | Runtime | Default URL | Suggested model |
 |---------|-------------|------------------|
-| **Ollama** | `http://localhost:11434/v1` | `qwen2.5-coder:32b` (16–24 GB VRAM) |
+| **Ollama** | `http://localhost:11434/v1` | `qwen3-coder:30b` (16–24 GB VRAM) |
 | **LM Studio** | `http://127.0.0.1:1234/v1` | Whatever you've loaded in the GUI |
 | **llama.cpp** | `http://127.0.0.1:8080/v1` | Any GGUF you've loaded |
 | **vLLM** | `http://127.0.0.1:8000/v1` | Any HuggingFace ID you serve |
@@ -61,12 +61,12 @@ brew install ollama
 ollama serve &
 
 # Pull a code-tuned 30B+ model (≈19 GB on disk)
-ollama pull qwen2.5-coder:32b
+ollama pull qwen3-coder:30b
 
 # Configure OpenCode to use it
 bash .opencode/scripts/configure-backend.sh \
      --tier private_local --provider ollama \
-     --model qwen2.5-coder:32b
+     --model qwen3-coder:30b
 
 # Start OpenCode in this dir; AGENTS.md auto-loads + plugin runs hooks
 opencode

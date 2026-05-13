@@ -233,7 +233,7 @@ Next steps:
        bash .opencode/scripts/detect-backends.sh --free-tier-first  # bias to free tiers
        bash .opencode/scripts/configure-backend.sh \\
             --tier private_local --provider ollama \\
-            --model qwen2.5-coder:32b
+            --model qwen3-coder:30b
      Tiers (see PRIVACY.md for the privacy contract per tier):
        private_local: ollama / lm_studio / llama.cpp / vllm / mlx
        enterprise:    azure_openai / aws_bedrock

@@ -2,6 +2,37 @@
 
 All notable changes to opencode-sdlc-wizard.
 
+## [0.9.1] - 2026-05-12
+
+### Changed — default local Ollama model bumped from Qwen 2.5 to Qwen 3
+
+Community-patterns research (May 2026) surveyed 30+ shared `opencode.json`
+configurations and found Qwen3-Coder is the most-cited local default;
+Qwen 2.5 only appears in older configs from before Qwen3 shipped in Q4 2025.
+
+- `scripts/pick-backend.sh` default-model map:
+  `private_local/ollama: qwen2.5-coder:32b` → `qwen3-coder:30b`
+- Verified tag `qwen3-coder:30b` exists on ollama.com/library/qwen3-coder/tags.
+- Doc surfaces updated to match: `install.sh` next-steps, `PRIVACY.md`
+  (Ollama walkthrough + suggested-model table), `README.md`, `AGENTS.md`,
+  `docs/cost-ladder.md` ($0/mo local-only path).
+- `tests/test-pick.sh` T4 updated to assert the new default.
+- T12 drift gate (per-provider `/qwen/` substring match) continues to pass
+  unchanged — both Qwen2.5 and Qwen3 satisfy it.
+
+No other model defaults changed in this patch. The May-2026 research
+flagged additional candidates (Groq → `gpt-oss-120b`, OpenAI →
+`gpt-5.2-codex`, Gemini → `gemini-3.1-pro`, etc.) but each needs
+case-by-case verification against the provider's live catalog before
+shipping as a default. Deferred to v0.9.x as community-verified swaps
+land.
+
+### Not changed (intentionally)
+
+- 13 of the 14 default-model map entries remain identical to v0.9.0.
+- VRAM annotation `(16–24 GB VRAM)` in PRIVACY.md still applies — Qwen3-Coder-30B at Q4 is ~17–18 GB, at Q5 ~21 GB.
+- All v0.9.0 features (`pick` subcommand, CLI dispatch, install delivery, T12 drift gate) unchanged.
+
 ## [0.9.0] - 2026-05-12
 
 ### Added — `pick` subcommand (one-shot detect → configure backend)
