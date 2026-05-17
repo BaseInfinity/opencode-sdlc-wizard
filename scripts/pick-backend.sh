@@ -44,6 +44,15 @@ TARGET_DIR=""
 FORCE=0
 DRY_RUN=0
 FREE_TIER_FIRST=0
+# v0.10.0 Mixed-Mode: optional reviewer model routing. When set, pick
+# forwards to configure-backend.sh's --reviewer-* flags so the emitted
+# opencode.json gains an agent.review.model block. Per community
+# patterns research (May 2026), 11/15 surveyed configs split build vs
+# review across different models. Coder/reviewer is the first pair;
+# planner/docs follow in later releases.
+REVIEWER_TIER=""
+REVIEWER_PROVIDER=""
+REVIEWER_MODEL=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -58,6 +67,12 @@ while [ $# -gt 0 ]; do
     --force) FORCE=1 ;;
     --dry-run) DRY_RUN=1 ;;
     --free-tier-first) FREE_TIER_FIRST=1 ;;
+    --reviewer-tier) shift; REVIEWER_TIER="${1:-}" ;;
+    --reviewer-tier=*) REVIEWER_TIER="${1#*=}" ;;
+    --reviewer-provider) shift; REVIEWER_PROVIDER="${1:-}" ;;
+    --reviewer-provider=*) REVIEWER_PROVIDER="${1#*=}" ;;
+    --reviewer-model) shift; REVIEWER_MODEL="${1:-}" ;;
+    --reviewer-model=*) REVIEWER_MODEL="${1#*=}" ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown arg: $1" >&2; usage >&2; exit 2 ;;
   esac
@@ -112,40 +127,76 @@ if [ -z "$TIER" ] || [ -z "$PROVIDER" ]; then
 fi
 
 # Default-model lookup. Single source of truth for the canonical floor
-# model per tier/provider — referenced by docs (cost-ladder.md) and
-# tested for drift in test-pick.sh T12.
-if [ -z "$MODEL" ]; then
-  case "$TIER/$PROVIDER" in
-    private_local/ollama)         MODEL="qwen3-coder:30b" ;;
-    private_local/mlx)            MODEL="mlx-community/Qwen2.5-Coder-32B-Instruct-4bit" ;;
+# model per tier/provider — referenced by docs (cost-ladder.md), used for
+# both the coder pin and (v0.10.0) the reviewer pin, tested for drift
+# in test-pick.sh T12.
+default_model_for() {
+  case "$1/$2" in
+    private_local/ollama)         echo "qwen3-coder:30b" ;;
+    private_local/mlx)            echo "mlx-community/Qwen2.5-Coder-32B-Instruct-4bit" ;;
     private_local/lm_studio|private_local/lmstudio)
-                                  MODEL="qwen2.5-coder-32b-instruct" ;;
+                                  echo "qwen2.5-coder-32b-instruct" ;;
     private_local/llama_cpp|private_local/llamacpp)
-                                  MODEL="qwen2.5-coder-32b-instruct" ;;
-    private_local/vllm)           MODEL="Qwen/Qwen2.5-Coder-32B-Instruct" ;;
+                                  echo "qwen2.5-coder-32b-instruct" ;;
+    private_local/vllm)           echo "Qwen/Qwen2.5-Coder-32B-Instruct" ;;
     enterprise/azure_openai|enterprise/azure)
-                                  MODEL="gpt-5" ;;
+                                  echo "gpt-5" ;;
     enterprise/aws_bedrock|enterprise/bedrock|enterprise/amazon-bedrock)
-                                  MODEL="anthropic.claude-sonnet-4-5-20250929-v1:0" ;;
+                                  echo "anthropic.claude-sonnet-4-5-20250929-v1:0" ;;
     hosted_oss/together|hosted_oss/togetherai)
-                                  MODEL="Qwen/Qwen2.5-Coder-32B-Instruct" ;;
-    hosted_oss/groq)              MODEL="llama-3.3-70b-versatile" ;;
-    hosted_oss/openrouter)        MODEL="qwen/qwen-2.5-coder-32b-instruct" ;;
-    hosted_oss/cerebras)          MODEL="gpt-oss-120b" ;;
-    hosted_oss/deepseek)          MODEL="deepseek-chat" ;;
+                                  echo "Qwen/Qwen2.5-Coder-32B-Instruct" ;;
+    hosted_oss/groq)              echo "llama-3.3-70b-versatile" ;;
+    hosted_oss/openrouter)        echo "qwen/qwen-2.5-coder-32b-instruct" ;;
+    hosted_oss/cerebras)          echo "gpt-oss-120b" ;;
+    hosted_oss/deepseek)          echo "deepseek-chat" ;;
     hosted_oss/nvidia_nim|hosted_oss/nvidia|hosted_oss/nvidia-nim)
-                                  MODEL="deepseek-ai/deepseek-r1" ;;
-    proprietary/anthropic)        MODEL="claude-opus-4-7" ;;
-    proprietary/openai)           MODEL="gpt-5" ;;
+                                  echo "deepseek-ai/deepseek-r1" ;;
+    proprietary/anthropic)        echo "claude-opus-4-7" ;;
+    proprietary/openai)           echo "gpt-5" ;;
     proprietary/google_aistudio|proprietary/google|proprietary/gemini)
-                                  MODEL="gemini-2.5-flash" ;;
-    *)
-      echo "pick: no default model known for $TIER/$PROVIDER." >&2
-      echo "  Pass --model <name> explicitly, or check docs/cost-ladder.md" >&2
-      echo "  for the canonical model id for this provider." >&2
-      exit 4
-      ;;
+                                  echo "gemini-2.5-flash" ;;
+    *) return 1 ;;
   esac
+}
+
+if [ -z "$MODEL" ]; then
+  MODEL="$(default_model_for "$TIER" "$PROVIDER")" || {
+    echo "pick: no default model known for $TIER/$PROVIDER." >&2
+    echo "  Pass --model <name> explicitly, or check docs/cost-ladder.md" >&2
+    echo "  for the canonical model id for this provider." >&2
+    exit 4
+  }
+fi
+
+# Mixed-Mode (v0.10.0): all-or-nothing on --reviewer-* triplet. Partial
+# spec is a bug — would silently produce a single-mode config. Fail loud.
+RV_SET=0
+[ -n "$REVIEWER_TIER" ] && RV_SET=$((RV_SET+1))
+[ -n "$REVIEWER_PROVIDER" ] && RV_SET=$((RV_SET+1))
+[ -n "$REVIEWER_MODEL" ] && RV_SET=$((RV_SET+1))
+# Allow --reviewer-tier + --reviewer-provider without --reviewer-model
+# (we'll fill it from the default-model map). Reject any other partial.
+if [ -n "$REVIEWER_MODEL" ] && { [ -z "$REVIEWER_TIER" ] || [ -z "$REVIEWER_PROVIDER" ]; }; then
+  echo "pick: --reviewer-model requires --reviewer-tier and --reviewer-provider together" >&2
+  exit 2
+fi
+if [ -n "$REVIEWER_TIER" ] && [ -z "$REVIEWER_PROVIDER" ]; then
+  echo "pick: --reviewer-tier requires --reviewer-provider together (all three reviewer flags must be set or none)" >&2
+  exit 2
+fi
+if [ -n "$REVIEWER_PROVIDER" ] && [ -z "$REVIEWER_TIER" ]; then
+  echo "pick: --reviewer-provider requires --reviewer-tier together (all three reviewer flags must be set or none)" >&2
+  exit 2
+fi
+
+# Resolve reviewer-model default if --reviewer-tier + --reviewer-provider
+# set but --reviewer-model not. Same default-model map as the coder pin.
+if [ -n "$REVIEWER_TIER" ] && [ -n "$REVIEWER_PROVIDER" ] && [ -z "$REVIEWER_MODEL" ]; then
+  REVIEWER_MODEL="$(default_model_for "$REVIEWER_TIER" "$REVIEWER_PROVIDER")" || {
+    echo "pick: no default model known for reviewer $REVIEWER_TIER/$REVIEWER_PROVIDER." >&2
+    echo "  Pass --reviewer-model <name> explicitly." >&2
+    exit 4
+  }
 fi
 
 # Forward to configure-backend.sh. --dry-run becomes --print-only on the
@@ -154,6 +205,17 @@ CONFIGURE_ARGS=(--tier "$TIER" --provider "$PROVIDER" --model "$MODEL")
 [ -n "$TARGET_DIR" ] && CONFIGURE_ARGS+=(--target-dir "$TARGET_DIR")
 [ "$FORCE" = "1" ]   && CONFIGURE_ARGS+=(--force)
 [ "$DRY_RUN" = "1" ] && CONFIGURE_ARGS+=(--print-only)
+if [ -n "$REVIEWER_TIER" ]; then
+  CONFIGURE_ARGS+=(
+    --reviewer-tier "$REVIEWER_TIER"
+    --reviewer-provider "$REVIEWER_PROVIDER"
+    --reviewer-model "$REVIEWER_MODEL"
+  )
+fi
 
-echo "pick: resolved $TIER/$PROVIDER → $MODEL" >&2
+if [ -n "$REVIEWER_TIER" ]; then
+  echo "pick: resolved coder $TIER/$PROVIDER → $MODEL + reviewer $REVIEWER_TIER/$REVIEWER_PROVIDER → $REVIEWER_MODEL" >&2
+else
+  echo "pick: resolved $TIER/$PROVIDER → $MODEL" >&2
+fi
 "$CONFIGURE" "${CONFIGURE_ARGS[@]}"

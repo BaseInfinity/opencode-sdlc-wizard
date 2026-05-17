@@ -124,13 +124,16 @@ ceiling matters, free for the rest.
 | Reviewer (high-stakes) | Codex via API | `gpt-5.5` xhigh | ~$1-3 per review at xhigh | When release-critical |
 
 ```bash
-# Coder: Claude via API
-bash .opencode/scripts/configure-backend.sh \
+# v0.10.0: Mixed-Mode in one shot via `pick` — coder + reviewer split
+# the work, OpenCode auto-routes review tasks via agent.review.model
+npx opencode-sdlc-wizard pick \
   --tier proprietary --provider anthropic \
-  --model claude-sonnet-4.6
+  --reviewer-tier hosted_oss --reviewer-provider cerebras
 
-# When you need to switch to the free reviewer for a routine review,
-# just edit opencode.json or call configure-backend again.
+# Equivalent low-level invocation (what `pick` orchestrates under it):
+bash .opencode/scripts/configure-backend.sh \
+  --tier proprietary --provider anthropic --model claude-sonnet-4.6 \
+  --reviewer-tier hosted_oss --reviewer-provider cerebras --reviewer-model gpt-oss-120b
 ```
 
 **The hybrid pattern that maximizes this budget:**
@@ -140,8 +143,9 @@ bash .opencode/scripts/configure-backend.sh \
 - Saves ~80% of review tokens vs running Claude on both sides without
   losing rigor
 
-Mixed-mode in one config is on the v0.8.0+ roadmap; for now,
-`configure-backend` rewrites `opencode.json` per swap.
+v0.10.0 ships Mixed-Mode in `pick` and `configure-backend.sh` —
+emits both provider blocks plus `agent.review.model` so OpenCode
+routes review tasks to the reviewer without any wrapper script.
 
 ## $200/mo path — agentic-grade, multi-agent loops
 

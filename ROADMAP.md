@@ -125,12 +125,42 @@ two-step `detect → configure` workflow becomes
 - ✅ 25 new tests in `test-pick.sh` (333 total / 12 suites)
 - ✅ Default-model map drift gate (T12) — every v0.8.x picker provider must have a default
 
-## v0.10.0+ candidates (unprioritized)
+## v0.9.1 — Ollama default Qwen 2.5 → Qwen 3 — shipped 2026-05-12
 
-- **Mixed-mode skill**: pin a coder model + a reviewer model in one
-  config (today they're picked separately). Natural complement to the
-  cost-ladder doc — automate the hybrid coder/reviewer pattern.
-  Becomes `pick --coder ... --reviewer ...` extending v0.9.0.
+Community-patterns research surfaced that Qwen3-Coder is the most-cited
+local default in May-2026 shared configs. Single default-model bump
+verified against the live ollama.com tag list before shipping.
+
+- ✅ `private_local/ollama` default: `qwen2.5-coder:32b` → `qwen3-coder:30b`
+- ✅ All mirroring doc surfaces updated (install.sh, PRIVACY.md, README, AGENTS.md, cost-ladder)
+- ✅ Other community-flagged swaps (Groq, OpenAI, Gemini, DeepSeek) deferred per-provider until each lives in a verifiable catalog
+
+## v0.10.0 — Mixed-Mode (per-agent model routing) — shipped 2026-05-17
+
+The pattern community research called out as the May-2026 baseline:
+11/15 surveyed `opencode.json` files route review work to a different
+model than build work. v0.10.0 makes the split a one-flag-pair operation.
+
+- ✅ `configure-backend.sh` learns `--reviewer-tier T --reviewer-provider P --reviewer-model M` (all-or-nothing triplet)
+- ✅ Writes `agent.review.model` plus reviewer's provider block (deep-merged with coder's; same-provider collapses to one block)
+- ✅ Reviewer side uses same `PROVIDER_ALIASES` map → canonical IDs only in the written config
+- ✅ `pick` forwards reviewer flags; `--reviewer-model` optional (filled from canonical default-model map, same lookup as coder)
+- ✅ Default-model lookup factored into a `default_model_for()` function — single source of truth used for both sides
+- ✅ 8 new tests (T31–T34 in test-backend-picker, T15–T18 in test-pick); 341 total across 12 suites
+- ✅ `docs/cost-ladder.md` $20/mo hybrid example shows the new one-shot invocation
+- ✅ `cross-model-review.sh` wrapper unchanged — Mixed-Mode is the standing config; wrapper is the explicit invocation
+
+Planner / docs / test-writer agent routing deferred to v0.10.1+ — `pick`
+gains `--planner-*` / `--docs-*` flags as each pattern is validated.
+
+## v0.10.1+ candidates (unprioritized)
+
+- **Per-agent `permission` sandboxing**: 9/15 surveyed configs use
+  `agent.<name>.permission.write` to scope what each agent can touch
+  (test-writer can only write `**/*.test.ts`, docs only `**/*.md`).
+  Maps directly onto our SDLC steps; pick could emit a starter block.
+- **Planner / docs / test-writer flags on `pick`**: extend Mixed-Mode
+  beyond coder + reviewer once each pattern has community validation.
 - **Auto-nudge integration**: `instructions-loaded-check.sh` hook
   delegates to `check-updates.sh` instead of duplicating the version-
   check logic. Net: one source of truth, fewer drift opportunities.

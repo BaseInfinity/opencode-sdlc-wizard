@@ -2,6 +2,100 @@
 
 All notable changes to opencode-sdlc-wizard.
 
+## [0.10.0] - 2026-05-17
+
+### Added — Mixed-Mode (per-agent model routing) in `pick` + `configure-backend.sh`
+
+May-2026 community-patterns research showed 11/15 surveyed `opencode.json`
+configurations route review work to a different model than build work
+(coder=mid, reviewer=high-reasoning). v0.10.0 makes this a one-flag-pair
+operation instead of hand-editing `opencode.json`.
+
+```bash
+# Pick coder + reviewer in one shot. pick fills canonical default
+# models from its lookup table; --reviewer-model overrides.
+npx opencode-sdlc-wizard pick \
+  --tier proprietary --provider anthropic \
+  --reviewer-tier hosted_oss --reviewer-provider cerebras
+
+# Yields (--dry-run preview):
+{
+  "model": "anthropic/claude-opus-4-7",
+  "provider": {
+    "anthropic": { "options": { "apiKey": "{env:ANTHROPIC_API_KEY}" } },
+    "cerebras":  { "npm": "@ai-sdk/openai-compatible", "options": {
+      "apiKey": "{env:CEREBRAS_API_KEY}", "baseURL": "https://api.cerebras.ai/v1"
+    }, "models": { "gpt-oss-120b": {} } }
+  },
+  "agent": { "review": { "model": "cerebras/gpt-oss-120b" } }
+}
+```
+
+OpenCode now auto-routes any review-class agent to the reviewer model
+without needing the `cross-model-review.sh` wrapper script (that wrapper
+still exists for explicit "review NOW" invocations).
+
+### Changed — `scripts/configure-backend.sh`
+
+- New flags: `--reviewer-tier T --reviewer-provider P --reviewer-model M`
+  (all three required together; partial spec exits 2 with actionable
+  message).
+- Reviewer provider alias resolution shares the same `PROVIDER_ALIASES`
+  map as the coder side (`nvidia_nim → nvidia`, `google_aistudio → google`,
+  etc.) — both sides get canonicalized before being written.
+- Reviewer provider block merges into the same `provider.<id>` map as
+  the coder; same-provider reviewer (e.g., `--provider anthropic` +
+  `--reviewer-provider anthropic` with different model) collapses to a
+  single provider block.
+- `agent.review.model` deep-merges into any existing `agent` block so
+  user-set sibling fields (`temperature`, `tools`, `permission`) are
+  preserved.
+
+### Changed — `scripts/pick-backend.sh`
+
+- New flags: `--reviewer-tier T --reviewer-provider P [--reviewer-model M]`.
+  When `--reviewer-model` is omitted, `pick` fills it from the canonical
+  default-model map (same lookup used for the coder pin).
+- Default-model lookup factored into a `default_model_for(tier, provider)`
+  function so both the coder pin AND the reviewer pin share the same
+  source of truth — no risk of the two sides drifting apart.
+- Validation: partial `--reviewer-*` spec rejected (exit 2). `pick` won't
+  silently produce a single-mode config when the user clearly meant
+  mixed-mode.
+
+### Tests
+
+- `tests/test-backend-picker.sh` adds T31–T34:
+  - T31: `--reviewer-*` writes `agent.review.model` + both provider blocks
+  - T32: single-mode regression guard — no `agent` block injected when
+    reviewer flags absent
+  - T33: alias resolution (`nvidia_nim → nvidia`) applies to reviewer side
+  - T34: same-provider coder+reviewer collapses to single provider block
+- `tests/test-pick.sh` adds T15–T18:
+  - T15: `--reviewer-tier T --reviewer-provider P` fills reviewer-model
+    default + forwards to configurator
+  - T16: `--reviewer-model` override beats default
+  - T17: partial `--reviewer-*` spec exits non-zero with actionable msg
+  - T18: single-mode regression guard — no `--reviewer-*` forwarded
+    when not supplied
+
+**341 tests total across 12 suites** (was 333 / 12 in v0.9.1).
+
+### Docs
+
+- `docs/cost-ladder.md` $20/mo path: hybrid coder+reviewer block now
+  shows the v0.10.0 one-shot invocation alongside the low-level
+  `configure-backend.sh` equivalent.
+
+### Compat
+
+- 13 of 14 v0.9.x default-model entries unchanged.
+- `cross-model-review.sh` wrapper unchanged — still the "run a targeted
+  review NOW" command. Mixed-Mode in `opencode.json` is the **standing**
+  config; the wrapper is the **explicit** invocation.
+- Existing single-model `pick` and `configure-backend.sh` invocations
+  work identically — Mixed-Mode is purely additive opt-in.
+
 ## [0.9.1] - 2026-05-12
 
 ### Changed — default local Ollama model bumped from Qwen 2.5 to Qwen 3
