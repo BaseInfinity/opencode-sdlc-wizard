@@ -26,6 +26,13 @@ MODEL=""
 TARGET_DIR="$(pwd)"
 FORCE=0
 PRINT_ONLY=0
+# v0.10.0 Mixed-Mode: optional reviewer model routing. When all three of
+# REVIEWER_TIER/REVIEWER_PROVIDER/REVIEWER_MODEL are set, configure-backend
+# writes `agent.review.model` (and the reviewer's provider block if it
+# differs from the coder's) into the merged opencode.json.
+REVIEWER_TIER=""
+REVIEWER_PROVIDER=""
+REVIEWER_MODEL=""
 
 usage() {
   sed -n '2,15p' "$0"
@@ -43,6 +50,12 @@ while [ $# -gt 0 ]; do
     --target-dir=*) TARGET_DIR="${1#*=}" ;;
     --force) FORCE=1 ;;
     --print-only) PRINT_ONLY=1 ;;
+    --reviewer-tier) shift; REVIEWER_TIER="${1:-}" ;;
+    --reviewer-tier=*) REVIEWER_TIER="${1#*=}" ;;
+    --reviewer-provider) shift; REVIEWER_PROVIDER="${1:-}" ;;
+    --reviewer-provider=*) REVIEWER_PROVIDER="${1#*=}" ;;
+    --reviewer-model) shift; REVIEWER_MODEL="${1:-}" ;;
+    --reviewer-model=*) REVIEWER_MODEL="${1#*=}" ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown arg: $1" >&2; usage >&2; exit 2 ;;
   esac
@@ -54,16 +67,32 @@ done
 [ -n "$MODEL" ]    || { echo "--model is required"    >&2; exit 2; }
 [ -d "$TARGET_DIR" ] || { echo "Target dir does not exist: $TARGET_DIR" >&2; exit 2; }
 
+# Mixed-Mode validation: --reviewer-* flags are all-or-nothing. Partial
+# reviewer spec would silently produce a single-mode config — fail loud.
+RV_SET=0
+[ -n "$REVIEWER_TIER" ] && RV_SET=$((RV_SET+1))
+[ -n "$REVIEWER_PROVIDER" ] && RV_SET=$((RV_SET+1))
+[ -n "$REVIEWER_MODEL" ] && RV_SET=$((RV_SET+1))
+if [ "$RV_SET" -ne 0 ] && [ "$RV_SET" -ne 3 ]; then
+  echo "--reviewer-tier / --reviewer-provider / --reviewer-model must all be set together (or none)" >&2
+  exit 2
+fi
+
 CONFIG_PATH="$TARGET_DIR/opencode.json"
 
 # Build the provider-specific fragment as a JSON string. We keep this in a
 # heredoc-fed node script so we don't have to escape JSON in bash, and so
 # the merge logic stays canonical (sorted keys, 2-space indent, trailing \n).
-node - "$TIER" "$PROVIDER" "$MODEL" "$CONFIG_PATH" "$FORCE" "$PRINT_ONLY" <<'NODE'
+node - "$TIER" "$PROVIDER" "$MODEL" "$CONFIG_PATH" "$FORCE" "$PRINT_ONLY" \
+     "$REVIEWER_TIER" "$REVIEWER_PROVIDER" "$REVIEWER_MODEL" <<'NODE'
 const fs = require("node:fs");
-const [tier, providerArg, model, configPath, forceStr, printOnlyStr] = process.argv.slice(2);
+const [
+  tier, providerArg, model, configPath, forceStr, printOnlyStr,
+  reviewerTier, reviewerProviderArg, reviewerModel,
+] = process.argv.slice(2);
 const force = forceStr === "1";
 const printOnly = printOnlyStr === "1";
+const mixedMode = Boolean(reviewerTier && reviewerProviderArg && reviewerModel);
 
 // Canonical provider IDs. Detector emits user-friendly aliases; we accept both
 // and emit the canonical OpenCode/models.dev ID in the written config so model
@@ -349,6 +378,26 @@ if (fs.existsSync(configPath)) {
 const fragment = fragmentFor(tier, provider, model);
 const merged = { ...existing, model: fragment.model };
 merged.provider = deepMerge(existing.provider || {}, fragment.provider || {});
+
+// v0.10.0 Mixed-Mode: when --reviewer-* triplet is set, also merge the
+// reviewer's provider block (skipped when reviewer = coder) and set
+// agent.review.model to the reviewer's "<provider>/<model>" pin. Per the
+// May-2026 community-patterns research, this maps to how 11/15 surveyed
+// configs route review work to a separate model from build work.
+if (mixedMode) {
+  const reviewerProvider = PROVIDER_ALIASES[reviewerProviderArg] || reviewerProviderArg;
+  const reviewerFragment = fragmentFor(reviewerTier, reviewerProvider, reviewerModel);
+  // Deep-merge reviewer's provider block. If coder + reviewer share a
+  // provider (e.g., both anthropic with different models), this collapses
+  // to a single block — provider blocks key on canonical provider id.
+  merged.provider = deepMerge(merged.provider, reviewerFragment.provider || {});
+  // Inject agent.review.model. Preserve any user-set sibling fields
+  // (temperature, tools, permission) by deep-merging at the agent.review
+  // level rather than overwriting the whole object.
+  merged.agent = deepMerge(existing.agent || {}, {
+    review: { model: reviewerFragment.model },
+  });
+}
 
 // Canonical key ordering for deterministic output (idempotency requirement).
 // Top-level: $schema, model, provider, then everything else alphabetical.

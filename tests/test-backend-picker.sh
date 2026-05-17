@@ -613,6 +613,109 @@ let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{
   fi
 fi
 
+# --- v0.10.0 Mixed-Mode: configure-backend.sh learns --reviewer-tier /
+# --reviewer-provider / --reviewer-model. When all three are supplied,
+# the merged opencode.json gains an `agent.review.model` block plus the
+# reviewer's provider block (if it differs from the coder's). Community
+# patterns research (May 2026) showed 11/15 surveyed configs route
+# review work to a different model than build work — opening with the
+# coder/reviewer split first, --planner/--docs to follow.
+
+# --- T31: --reviewer-* flags produce agent.review.model + reviewer provider block
+if [ -x "$CONFIG" ]; then
+  T="$TMP_ROOT/t31"; mkdir -p "$T"
+  (cd "$T" && "$CONFIG" \
+     --tier private_local --provider ollama --model qwen3-coder:30b \
+     --reviewer-tier hosted_oss --reviewer-provider cerebras --reviewer-model gpt-oss-120b \
+     >/dev/null 2>&1) || true
+  if [ -f "$T/opencode.json" ]; then
+    ok="$(node -e "
+const j=require('$T/opencode.json');
+if(j.model!=='ollama/qwen3-coder:30b'){console.log('coder-model-wrong:'+j.model);process.exit(1)}
+if(!j.agent||!j.agent.review||!j.agent.review.model){console.log('missing-agent-review');process.exit(1)}
+if(j.agent.review.model!=='cerebras/gpt-oss-120b'){console.log('reviewer-model-wrong:'+j.agent.review.model);process.exit(1)}
+if(!j.provider||!j.provider.ollama){console.log('missing-coder-provider-block');process.exit(1)}
+if(!j.provider.cerebras){console.log('missing-reviewer-provider-block');process.exit(1)}
+if(!j.provider.cerebras.options||!String(j.provider.cerebras.options.baseURL||'').includes('cerebras.ai')){console.log('reviewer-baseurl-wrong');process.exit(1)}
+console.log('ok');
+" 2>/dev/null || echo 'failed')"
+    if [ "$ok" = "ok" ]; then
+      pass "Mixed-Mode: --reviewer-* writes agent.review.model + reviewer provider block"
+    else
+      fail "Mixed-Mode T31 — $ok"
+    fi
+  else
+    fail "Mixed-Mode T31 — configure did not write opencode.json"
+  fi
+fi
+
+# --- T32: without --reviewer-* flags, no agent.review block created (regression
+#         guard — single-model pick must keep working unchanged)
+if [ -x "$CONFIG" ]; then
+  T="$TMP_ROOT/t32"; mkdir -p "$T"
+  (cd "$T" && "$CONFIG" --tier private_local --provider ollama --model qwen3-coder:30b >/dev/null 2>&1) || true
+  if [ -f "$T/opencode.json" ]; then
+    ok="$(node -e "
+const j=require('$T/opencode.json');
+if(j.agent && j.agent.review){console.log('unexpected-agent-review');process.exit(1)}
+console.log('ok');
+" 2>/dev/null || echo 'failed')"
+    if [ "$ok" = "ok" ]; then
+      pass "single-model pick does NOT inject agent.review (Mixed-Mode opt-in only)"
+    else
+      fail "T32 — $ok"
+    fi
+  fi
+fi
+
+# --- T33: reviewer provider alias (e.g., nvidia_nim) resolves to canonical
+#         (nvidia) in both the agent.review.model pin AND the provider block key
+if [ -x "$CONFIG" ]; then
+  T="$TMP_ROOT/t33"; mkdir -p "$T"
+  (cd "$T" && "$CONFIG" \
+     --tier proprietary --provider anthropic --model claude-opus-4-7 \
+     --reviewer-tier hosted_oss --reviewer-provider nvidia_nim --reviewer-model deepseek-ai/deepseek-r1 \
+     >/dev/null 2>&1) || true
+  if [ -f "$T/opencode.json" ]; then
+    ok="$(node -e "
+const j=require('$T/opencode.json');
+if(j.agent.review.model!=='nvidia/deepseek-ai/deepseek-r1'){console.log('alias-pin-wrong:'+j.agent.review.model);process.exit(1)}
+if(!j.provider.nvidia){console.log('alias-provider-block-missing');process.exit(1)}
+if(j.provider.nvidia_nim){console.log('non-canonical-key-present');process.exit(1)}
+console.log('ok');
+" 2>/dev/null || echo 'failed')"
+    if [ "$ok" = "ok" ]; then
+      pass "Mixed-Mode: --reviewer-provider alias resolves to canonical (nvidia_nim → nvidia)"
+    else
+      fail "T33 — $ok"
+    fi
+  fi
+fi
+
+# --- T34: same coder + reviewer provider (e.g., both anthropic) — single
+#         provider block, agent.review.model still set
+if [ -x "$CONFIG" ]; then
+  T="$TMP_ROOT/t34"; mkdir -p "$T"
+  (cd "$T" && "$CONFIG" \
+     --tier proprietary --provider anthropic --model claude-haiku-4-5 \
+     --reviewer-tier proprietary --reviewer-provider anthropic --reviewer-model claude-opus-4-7 \
+     >/dev/null 2>&1) || true
+  if [ -f "$T/opencode.json" ]; then
+    ok="$(node -e "
+const j=require('$T/opencode.json');
+if(j.model!=='anthropic/claude-haiku-4-5'){console.log('coder-wrong:'+j.model);process.exit(1)}
+if(j.agent.review.model!=='anthropic/claude-opus-4-7'){console.log('reviewer-wrong:'+j.agent.review.model);process.exit(1)}
+if(Object.keys(j.provider).length!==1){console.log('expected-single-provider-got:'+Object.keys(j.provider).join(','));process.exit(1)}
+console.log('ok');
+" 2>/dev/null || echo 'failed')"
+    if [ "$ok" = "ok" ]; then
+      pass "Mixed-Mode: same provider for coder + reviewer → single provider block"
+    else
+      fail "T34 — $ok"
+    fi
+  fi
+fi
+
 echo ""
 echo "=== Results: $PASS passed, $FAIL failed ==="
 [ "$FAIL" -eq 0 ] || exit 1

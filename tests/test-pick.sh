@@ -263,6 +263,77 @@ for combo in \
   fi
 done
 
+# v0.10.0 Mixed-Mode: pick learns --reviewer-tier / --reviewer-provider /
+# --reviewer-model. When --reviewer-tier + --reviewer-provider are given,
+# pick resolves the canonical reviewer-model default (from the same map
+# used for the coder) if --reviewer-model isn't supplied, then forwards
+# all three to configure-backend.sh's matching flags.
+
+# T15: --reviewer-tier + --reviewer-provider forwards reviewer-model default
+if [ -x "$SCRIPT" ]; then
+  T="$TMP_ROOT/t15"; make_target "$T" "private_local/ollama"
+  DETECT_STUB_LOG="$T/detect.log"
+  CONFIGURE_STUB_LOG="$T/configure.log"
+  (DETECT_STUB_LOG="$DETECT_STUB_LOG" CONFIGURE_STUB_LOG="$CONFIGURE_STUB_LOG" \
+   PATH="$T/stubs:$PATH" "$SCRIPT" \
+     --reviewer-tier hosted_oss --reviewer-provider cerebras >/dev/null 2>&1) || true
+  if [ -f "$CONFIGURE_STUB_LOG" ] \
+     && grep -q -- "--reviewer-tier hosted_oss" "$CONFIGURE_STUB_LOG" \
+     && grep -q -- "--reviewer-provider cerebras" "$CONFIGURE_STUB_LOG" \
+     && grep -q -- "--reviewer-model gpt-oss-120b" "$CONFIGURE_STUB_LOG"; then
+    pass "Mixed-Mode: --reviewer-provider cerebras → reviewer-model gpt-oss-120b default"
+  else
+    fail "Mixed-Mode reviewer default not forwarded correctly"
+    cat "$CONFIGURE_STUB_LOG" 2>/dev/null | head -3 >&2 || true
+  fi
+fi
+
+# T16: --reviewer-model override beats canonical reviewer default
+if [ -x "$SCRIPT" ]; then
+  T="$TMP_ROOT/t16"; make_target "$T" "private_local/ollama"
+  DETECT_STUB_LOG="$T/detect.log"
+  CONFIGURE_STUB_LOG="$T/configure.log"
+  (DETECT_STUB_LOG="$DETECT_STUB_LOG" CONFIGURE_STUB_LOG="$CONFIGURE_STUB_LOG" \
+   PATH="$T/stubs:$PATH" "$SCRIPT" \
+     --reviewer-tier proprietary --reviewer-provider anthropic \
+     --reviewer-model claude-opus-4-7-1m >/dev/null 2>&1) || true
+  if [ -f "$CONFIGURE_STUB_LOG" ] && grep -q -- "--reviewer-model claude-opus-4-7-1m" "$CONFIGURE_STUB_LOG"; then
+    pass "Mixed-Mode: --reviewer-model override forwards user's reviewer model"
+  else
+    fail "--reviewer-model override was ignored"
+    cat "$CONFIGURE_STUB_LOG" 2>/dev/null | head -3 >&2 || true
+  fi
+fi
+
+# T17: --reviewer-tier without --reviewer-provider errors (partial spec is a bug)
+if [ -x "$SCRIPT" ]; then
+  T="$TMP_ROOT/t17"; make_target "$T" "private_local/ollama"
+  DETECT_STUB_LOG="$T/detect.log"
+  CONFIGURE_STUB_LOG="$T/configure.log"
+  rc=0
+  out="$(DETECT_STUB_LOG="$DETECT_STUB_LOG" CONFIGURE_STUB_LOG="$CONFIGURE_STUB_LOG" \
+       PATH="$T/stubs:$PATH" "$SCRIPT" --reviewer-tier hosted_oss 2>&1)" || rc=$?
+  if [ "$rc" -ne 0 ] && echo "$out" | grep -qiE "(reviewer|together|all|partial)"; then
+    pass "partial --reviewer-* spec rejected with actionable message"
+  else
+    fail "partial --reviewer-* spec did not error cleanly (rc=$rc)"
+  fi
+fi
+
+# T18: no --reviewer-* flags → no reviewer args forwarded (regression guard)
+if [ -x "$SCRIPT" ]; then
+  T="$TMP_ROOT/t18"; make_target "$T" "private_local/ollama"
+  DETECT_STUB_LOG="$T/detect.log"
+  CONFIGURE_STUB_LOG="$T/configure.log"
+  (DETECT_STUB_LOG="$DETECT_STUB_LOG" CONFIGURE_STUB_LOG="$CONFIGURE_STUB_LOG" \
+   PATH="$T/stubs:$PATH" "$SCRIPT" >/dev/null 2>&1) || true
+  if [ -f "$CONFIGURE_STUB_LOG" ] && ! grep -q -- "--reviewer-" "$CONFIGURE_STUB_LOG"; then
+    pass "single-mode pick (no --reviewer-*) does NOT forward reviewer flags"
+  else
+    fail "single-mode pick leaked --reviewer-* args to configure"
+  fi
+fi
+
 echo ""
 echo "=== Results: $PASS passed, $FAIL failed ==="
 [ "$FAIL" -eq 0 ] || exit 1
