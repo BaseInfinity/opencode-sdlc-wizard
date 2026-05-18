@@ -1129,6 +1129,80 @@ console.log('ok');
   fi
 fi
 
+# --- v0.11.0: Z.AI GLM Coding Plan as proprietary tier entry.
+# Most-cited post-Anthropic-OAuth-ban migration target per May-2026
+# community research. Closed weights (GLM) but OpenAI-compatible at
+# api.z.ai/api/paas/v4. Default model: glm-4.6 (most-documented stable
+# release as of May 2026).
+
+# --- T53: configure-backend writes correct Z.AI provider block
+if [ -x "$CONFIG" ]; then
+  T="$TMP_ROOT/t53"; mkdir -p "$T"
+  (cd "$T" && "$CONFIG" --tier proprietary --provider zai --model "glm-4.6" >/dev/null 2>&1) || true
+  if [ -f "$T/opencode.json" ]; then
+    ok="$(node -e "
+const j=require('$T/opencode.json');
+if(j.model!=='zai/glm-4.6'){console.log('model-wrong:'+j.model);process.exit(1)}
+if(!j.provider||!j.provider.zai){console.log('missing-zai-block');process.exit(1)}
+const opts=j.provider.zai.options||{};
+if(opts.apiKey!=='{env:ZAI_API_KEY}'){console.log('wrong-apikey:'+opts.apiKey);process.exit(1)}
+if(!String(opts.baseURL||'').includes('api.z.ai')){console.log('wrong-baseurl:'+opts.baseURL);process.exit(1)}
+if(j.provider.zai.npm!=='@ai-sdk/openai-compatible'){console.log('wrong-npm');process.exit(1)}
+if(!j.provider.zai.models||!j.provider.zai.models['glm-4.6']){console.log('missing-model-entry');process.exit(1)}
+console.log('ok');
+" 2>/dev/null || echo 'failed')"
+    if [ "$ok" = "ok" ]; then
+      pass "configure-backend writes Z.AI provider block (proprietary/zai, glm-4.6)"
+    else
+      fail "T53 — $ok"
+    fi
+  fi
+fi
+
+# --- T54: Z.AI aliases (z.ai, z_ai, glm) all resolve to canonical 'zai'
+if [ -x "$CONFIG" ]; then
+  T="$TMP_ROOT/t54"; mkdir -p "$T"
+  (cd "$T" && "$CONFIG" --tier proprietary --provider glm --model "glm-4.6" >/dev/null 2>&1) || true
+  if [ -f "$T/opencode.json" ]; then
+    ok="$(node -e "
+const j=require('$T/opencode.json');
+if(j.model!=='zai/glm-4.6'){console.log('alias-pin-wrong:'+j.model);process.exit(1)}
+if(!j.provider.zai){console.log('alias-block-missing');process.exit(1)}
+if(j.provider.glm){console.log('non-canonical-key-present');process.exit(1)}
+console.log('ok');
+" 2>/dev/null || echo 'failed')"
+    if [ "$ok" = "ok" ]; then
+      pass "Z.AI alias 'glm' resolves to canonical 'zai' provider id"
+    else
+      fail "T54 — $ok"
+    fi
+  fi
+fi
+
+# --- T55: detect-backends picks up ZAI_API_KEY and emits proprietary/zai
+# Use a clean HOME so the host's LM Studio cache (~/.cache/lm-studio) doesn't
+# trigger a private_local recommendation that would beat the proprietary tier.
+if [ -x "$DETECT" ]; then
+  FAKE_HOME="$TMP_ROOT/t55-home"; mkdir -p "$FAKE_HOME"
+  # Strip PATH to a minimum so local runtime binaries (ollama, vllm, mlx_lm) on
+  # the host don't get detected — we want ZAI_API_KEY to be the ONLY signal.
+  ok="$(env -i HOME="$FAKE_HOME" PATH="/usr/bin:/bin" ZAI_API_KEY="x" "$DETECT" 2>/dev/null | node -e "
+let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{
+  try{const j=JSON.parse(d);
+    if(!j.proprietary.zai){console.log('no-zai-block');process.exit(1)}
+    if(j.proprietary.zai.key_set!==true){console.log('not-detected');process.exit(1)}
+    if(j.proprietary.zai.env!=='ZAI_API_KEY'){console.log('wrong-env:'+j.proprietary.zai.env);process.exit(1)}
+    if(j.recommendation!=='proprietary/zai'){console.log('not-recommended:'+j.recommendation);process.exit(1)}
+    console.log('ok');
+  }catch(e){console.log('parse-fail:'+e.message)}
+})" 2>/dev/null || echo 'failed')"
+  if [ "$ok" = "ok" ]; then
+    pass "detect-backends picks up ZAI_API_KEY and recommends proprietary/zai"
+  else
+    fail "T55 — $ok"
+  fi
+fi
+
 echo ""
 echo "=== Results: $PASS passed, $FAIL failed ==="
 [ "$FAIL" -eq 0 ] || exit 1

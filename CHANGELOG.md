@@ -2,6 +2,105 @@
 
 All notable changes to opencode-sdlc-wizard.
 
+## [0.11.0] - 2026-05-18
+
+### Added — Z.AI GLM Coding Plan as a first-class proprietary provider
+
+Per the original May-2026 community-patterns research, Z.AI's GLM
+Coding Plan is the **most-cited post-Anthropic-OAuth-ban migration
+target** (Anthropic killed third-party OAuth Jan/Feb 2026; OpenCode
+removed the OAuth code March 2026). v0.11.0 makes Z.AI a first-class
+provider across the detector, configurator, picker, and docs.
+
+```bash
+export ZAI_API_KEY="..."
+npx opencode-sdlc-wizard pick                # auto-detected
+# or explicitly:
+npx opencode-sdlc-wizard pick --tier proprietary --provider zai
+npx opencode-sdlc-wizard pick --tier proprietary --provider glm  # alias
+```
+
+Yields:
+
+```json
+{
+  "model": "zai/glm-4.6",
+  "provider": {
+    "zai": {
+      "npm": "@ai-sdk/openai-compatible",
+      "options": {
+        "apiKey": "{env:ZAI_API_KEY}",
+        "baseURL": "https://api.z.ai/api/paas/v4"
+      },
+      "models": { "glm-4.6": {} }
+    }
+  }
+}
+```
+
+### Verified live (Z.AI docs, fetched 2026-05-18)
+
+- **baseURL**: `https://api.z.ai/api/paas/v4` — OpenAI-compatible
+- **Auth**: `Authorization: Bearer <ZAI_API_KEY>`
+- **Default model**: `glm-4.6` — most-documented stable; other catalog
+  options include GLM-5.1 / 5-Turbo / 5 / 4.7 / 4.5
+- **Coding Plan pricing**: $10/mo (or $30/quarter, $80/year — quarterly
+  restructure May 2026; the previously-cited flat $18/mo SKU is retired)
+
+### Changed
+
+- `scripts/configure-backend.sh`:
+  - `PROVIDER_ALIASES`: added `zai → zai`, `z.ai → zai`, `z_ai → zai`,
+    `glm → zai` (canonical id is `zai`)
+  - `fragmentFor`: new `proprietary/zai` case with the verified
+    baseURL + `@ai-sdk/openai-compatible` adapter + `models[<id>]` entry
+- `scripts/detect-backends.sh`:
+  - New `PR_ZAI_SET="$(env_set ZAI_API_KEY)"` probe
+  - JSON output: added `proprietary.zai.{key_set, env: "ZAI_API_KEY"}`
+  - Privacy-first cascade: Z.AI added at the end of proprietary tier
+    (Anthropic → OpenAI → Google → Z.AI)
+  - Free-tier-first cascade: Z.AI ranked **above** Anthropic / OpenAI
+    in the proprietary section because Coding Plan flat-fee is cheaper
+    than pay-per-token for heavy users (community signal)
+- `scripts/pick-backend.sh`:
+  - `default_model_for()`: new `proprietary/zai|z.ai|z_ai|glm` →
+    `glm-4.6` entry
+- `AGENTS.md`: privacy-tier table mentions Z.AI in the proprietary row
+  with the migration-target context
+
+### Tests
+
+- `tests/test-backend-picker.sh` adds T53–T55:
+  - T53: configure-backend writes correct Z.AI provider block
+    (apiKey env ref, baseURL, npm adapter, models entry)
+  - T54: alias resolution (`glm → zai`) parity with other proprietary
+    providers (`google_aistudio → google`, etc.)
+  - T55: detector picks up `ZAI_API_KEY` and recommends `proprietary/zai`
+    (uses fake HOME + stripped PATH so host's local runtimes don't win
+    the privacy-first cascade)
+- `tests/test-pick.sh` T12 default-model drift gate gains
+  `proprietary/zai:glm` entry (substring match `/glm/` against
+  `glm-4.6` default)
+- **379 tests across 12 suites** (was 375 / 12 in v0.10.6)
+
+### Why this is the minor-version bump (v0.10.x → v0.11.0)
+
+New provider entry adds user-visible surface (new tier+provider combo,
+new env var, new alias group, new default-model map entry, new
+detector field, new docs row). All additive — every v0.10.x flag and
+provider continues to work unchanged — but the net "what does this
+wizard support" surface grew enough that a minor bump is appropriate.
+
+### Compat
+
+- Every v0.10.x default-model entry unchanged (Z.AI is a new entry,
+  not a swap of an existing one).
+- Every v0.10.x flag (`--reviewer-*`, `--planner-*`, `--small-*`,
+  `--sandbox-*`) works with `--tier proprietary --provider zai` exactly
+  as it does with the other proprietary providers.
+- Z.AI alias group (`zai`, `z.ai`, `z_ai`, `glm`) all resolve to the
+  canonical `zai` id in written `opencode.json` blocks.
+
 ## [0.10.6] - 2026-05-18
 
 ### Changed — `docs/cost-ladder.md` recalibration sweep

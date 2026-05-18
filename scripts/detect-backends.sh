@@ -6,7 +6,7 @@
 #   "private_local":  { ollama, lm_studio, llama_cpp, vllm, mlx },
 #   "enterprise":     { azure_openai, aws_bedrock },
 #   "hosted_oss":     { together, groq, openrouter, cerebras, deepseek, nvidia_nim },
-#   "proprietary":    { anthropic, openai, google_aistudio },
+#   "proprietary":    { anthropic, openai, google_aistudio, zai },
 #   "recommendation": "<tier>/<provider>"
 # }
 #
@@ -116,6 +116,8 @@ H_GOOGLE_AISTUDIO_SET="$(env_set GOOGLE_API_KEY)"
 # Proprietary — env-var presence
 PR_ANTHROPIC_SET="$(env_set ANTHROPIC_API_KEY)"
 PR_OPENAI_SET="$(env_set OPENAI_API_KEY)"
+# v0.11.0: Z.AI GLM Coding Plan. Closed weights → proprietary tier.
+PR_ZAI_SET="$(env_set ZAI_API_KEY)"
 
 # Recommendation cascade — privacy-first by default. When DETECT_FREE_TIER_FIRST=1
 # (set by configure-backend.sh's --free-tier-first), bias toward providers with
@@ -138,6 +140,7 @@ recommend_privacy_first() {
   if [ "$PR_ANTHROPIC_SET" = "true" ]; then echo "proprietary/anthropic"; return; fi
   if [ "$PR_OPENAI_SET" = "true" ]; then echo "proprietary/openai"; return; fi
   if [ "$H_GOOGLE_AISTUDIO_SET" = "true" ]; then echo "proprietary/google_aistudio"; return; fi
+  if [ "$PR_ZAI_SET" = "true" ]; then echo "proprietary/zai"; return; fi
   echo "none"
 }
 
@@ -160,6 +163,10 @@ recommend_free_tier_first() {
   if [ "$H_TOGETHER_SET" = "true" ]; then echo "hosted_oss/together"; return; fi
   if [ "$E_AZURE_SET" = "true" ]; then echo "enterprise/azure_openai"; return; fi
   if [ "$E_BEDROCK_SET" = "true" ]; then echo "enterprise/aws_bedrock"; return; fi
+  # Z.AI Coding Plan goes here in the free-cascade — paid sub but the
+  # community signal (May-2026 post-OAuth-ban migration target) ranks it
+  # above the other proprietary tiers when cost matters more than ceiling.
+  if [ "$PR_ZAI_SET" = "true" ]; then echo "proprietary/zai"; return; fi
   if [ "$PR_ANTHROPIC_SET" = "true" ]; then echo "proprietary/anthropic"; return; fi
   if [ "$PR_OPENAI_SET" = "true" ]; then echo "proprietary/openai"; return; fi
   echo "none"
@@ -197,7 +204,8 @@ cat <<EOF
   "proprietary": {
     "anthropic":       { "key_set": $PR_ANTHROPIC_SET,       "env": "ANTHROPIC_API_KEY" },
     "openai":          { "key_set": $PR_OPENAI_SET,          "env": "OPENAI_API_KEY" },
-    "google_aistudio": { "key_set": $H_GOOGLE_AISTUDIO_SET,  "env": "GOOGLE_API_KEY" }
+    "google_aistudio": { "key_set": $H_GOOGLE_AISTUDIO_SET,  "env": "GOOGLE_API_KEY" },
+    "zai":             { "key_set": $PR_ZAI_SET,             "env": "ZAI_API_KEY" }
   },
   "recommendation": "$RECOMMENDATION"
 }

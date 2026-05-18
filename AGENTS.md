@@ -81,7 +81,7 @@ Tiers (privacy-first ordering):
 | `private_local` | Stays on your machine | Ollama, LM Studio, llama.cpp, vLLM, MLX (Apple Silicon) |
 | `enterprise` | Stays in your tenant | Azure OpenAI, AWS Bedrock |
 | `hosted_oss` | Open weights, third-party host | Together, Groq, OpenRouter, Cerebras, DeepSeek direct, NVIDIA NIM (`nvidia_nim`) |
-| `proprietary` | Vendor-bound | Anthropic, OpenAI, Google AI Studio (`google_aistudio` — Gemini) |
+| `proprietary` | Vendor-bound | Anthropic, OpenAI, Google AI Studio (`google_aistudio` — Gemini), Z.AI (`zai` — GLM Coding Plan, post-Anthropic-OAuth-ban migration target) |
 
 See [`docs/cost-ladder.md`](docs/cost-ladder.md) for $0/$20/$200 monthly
 budget paths and a per-job picker (routine fix vs long-context refactor
