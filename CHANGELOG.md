@@ -2,6 +2,35 @@
 
 All notable changes to opencode-sdlc-wizard.
 
+## [0.10.3] - 2026-05-18
+
+### Changed — two more research-verified default-model bumps
+
+May-17 community-patterns research verified both swaps against live
+provider catalogs; v0.10.3 lands them as a focused patch.
+
+| Provider | Was (v0.10.2) | Now (v0.10.3) | Why |
+|---|---|---|---|
+| `hosted_oss/deepseek` | `deepseek-chat` | `deepseek-v4-flash` | DeepSeek V4 family shipped 2026-04-24; `deepseek-chat` is a moving alias that already points at V4, but explicit pin is clearer for cost/latency-sensitive picks |
+| `hosted_oss/groq` | `llama-3.3-70b-versatile` | `gpt-oss-120b` | Groq's own docs flag `gpt-oss-120b` as "Most Popular for OpenCode"; OpenAI open-weights release on Groq's LPU stack; matches Cerebras default for cross-provider consistency |
+
+PRIVACY.md "Suggested model" table and DeepSeek configure example
+bumped to match.
+
+### Tests
+
+- `test-pick.sh` T12 substring-match for groq updated `/llama/` → `/gpt-oss/`
+- `test-pick.sh` T23 planner-default assertion for groq bumped to `gpt-oss-120b`
+- DeepSeek tests unchanged — `/deepseek/` substring still matches `deepseek-v4-flash`
+- All other suites unchanged (configure-backend tests pin explicit models, not defaults)
+- 357 tests across 12 suites (no count change; T23 / T12 patched in place)
+
+### Compat
+
+- 12 of 14 default-model entries unchanged from v0.10.2.
+- Anyone passing `--model deepseek-chat` explicitly still works (deepseek-chat is still a valid id on DeepSeek's catalog; v0.10.3 just changes what `pick` chooses *by default*).
+- Anyone passing `--model llama-3.3-70b-versatile` explicitly still works (Groq still hosts it; we just default to gpt-oss-120b now per community signal).
+
 ## [0.10.2] - 2026-05-17
 
 ### Added — Planner agent model routing (`--planner-*` flags)

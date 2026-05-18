@@ -238,7 +238,7 @@ for combo in \
     "private_local/llama_cpp:qwen" \
     "private_local/vllm:Qwen" \
     "hosted_oss/together:Qwen" \
-    "hosted_oss/groq:llama" \
+    "hosted_oss/groq:gpt-oss" \
     "hosted_oss/openrouter:qwen" \
     "hosted_oss/cerebras:gpt-oss" \
     "hosted_oss/deepseek:deepseek" \
@@ -414,8 +414,8 @@ if [ -x "$SCRIPT" ]; then
   if [ -f "$CONFIGURE_STUB_LOG" ] \
      && grep -q -- "--planner-tier hosted_oss" "$CONFIGURE_STUB_LOG" \
      && grep -q -- "--planner-provider groq" "$CONFIGURE_STUB_LOG" \
-     && grep -q -- "--planner-model llama-3.3-70b-versatile" "$CONFIGURE_STUB_LOG"; then
-    pass "Planner: --planner-provider groq → planner-model llama-3.3-70b-versatile default"
+     && grep -q -- "--planner-model gpt-oss-120b" "$CONFIGURE_STUB_LOG"; then
+    pass "Planner: --planner-provider groq → planner-model gpt-oss-120b default (v0.10.3)"
   else
     fail "Planner default not forwarded"
     cat "$CONFIGURE_STUB_LOG" 2>/dev/null | head -3 >&2 || true
