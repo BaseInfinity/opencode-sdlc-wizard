@@ -2,6 +2,101 @@
 
 All notable changes to opencode-sdlc-wizard.
 
+## [0.12.0] - 2026-05-18
+
+### Added — `managed` tier with OpenCode Zen as 5th privacy tier
+
+The first new tier since v0.2.0. **OpenCode Zen** is OpenCode's own
+vendor-routed PAYG service — 40+ models including a free tier (Big
+Pickle, DeepSeek V4 Flash Free, MiniMax M2.5 Free, Nemotron 3 Super
+Free), $5 auto-reload trigger. Per May-2026 research, Zen is the
+"official recommended new-user entry point" — the wizard now reflects
+this in both the detector cascade and the tier table.
+
+```bash
+export OPENCODE_ZEN_API_KEY="..."
+npx opencode-sdlc-wizard pick                # auto-detected
+npx opencode-sdlc-wizard pick --tier managed --provider opencode
+npx opencode-sdlc-wizard pick --tier managed --provider zen          # alias
+```
+
+Yields:
+
+```json
+{
+  "model": "opencode/gpt-5.5",
+  "provider": {
+    "opencode": {
+      "npm": "@ai-sdk/openai-compatible",
+      "options": {
+        "apiKey": "{env:OPENCODE_ZEN_API_KEY}",
+        "baseURL": "https://opencode.ai/zen/v1"
+      },
+      "models": { "gpt-5.5": {} }
+    }
+  }
+}
+```
+
+### Verified live (Zen docs, fetched 2026-05-18)
+
+- **Canonical provider id**: `opencode` (per Zen's docs — model pin format `opencode/<model>`)
+- **baseURL**: `https://opencode.ai/zen/v1` (OpenAI-compatible)
+- **Auth**: `{env:OPENCODE_ZEN_API_KEY}` — namespaced to avoid collision with anything else "opencode"
+- **Default model**: `gpt-5.5` (Zen's own documented example string)
+- **Pricing**: PAYG per 1M tokens; free-tier models available; $5 reload trigger / default $20 reload
+
+### New 5th tier — `managed`
+
+| Tier | Privacy semantics |
+|---|---|
+| `private_local` | Your machine, zero egress |
+| `enterprise` | Your tenant (Azure, Bedrock) |
+| `hosted_oss` | Open weights, third-party host (you pick the upstream) |
+| **`managed`** | **OpenCode-routed PAYG; vendor manages routing** |
+| `proprietary` | Vendor-bound (you bring the API key, vendor sees prompts) |
+
+Position is intentional: prompts go through OpenCode's infra (less
+private than DIY hosted, more managed than your own vendor key). Sits
+between `hosted_oss` and `proprietary` in the privacy-first cascade.
+
+### Changed
+
+- `scripts/detect-backends.sh`:
+  - New `M_OPENCODE_ZEN_SET="$(env_set OPENCODE_ZEN_API_KEY)"` probe
+  - New `managed.opencode.{key_set, env}` entry in JSON output
+  - Privacy-first cascade: `managed` placed between `hosted_oss` and `proprietary`
+  - Free-tier-first cascade: `managed` placed between `proprietary/zai` and `proprietary/anthropic` (Zen has free models so beats paid Anthropic on cost)
+- `scripts/configure-backend.sh`:
+  - `PROVIDER_ALIASES` (4 new entries): `opencode → opencode`, `opencode_zen → opencode`, `opencode-zen → opencode`, `zen → opencode`
+  - `fragmentFor` new `managed/opencode` case with the verified config
+- `scripts/pick-backend.sh`:
+  - `default_model_for()` new `managed/opencode|opencode_zen|opencode-zen|zen` → `gpt-5.5` entry
+- `AGENTS.md`: tier table gains a `managed` row
+
+### Tests
+
+- `tests/test-backend-picker.sh` adds T66–T69:
+  - T66: configure-backend writes correct Zen provider block (id, baseURL, apiKey, npm adapter, models entry)
+  - T67: alias resolution (`zen → opencode`)
+  - T68: detector picks up `OPENCODE_ZEN_API_KEY` and recommends `managed/opencode` (fake HOME + stripped PATH)
+  - T69: `managed/opencode` composes with v0.10.x/v0.11.x agent flags (reviewer + sandbox + temp), same-provider coder+reviewer collapses to single provider block
+- `tests/test-pick.sh` T12 default-model drift gate gains `managed/opencode:gpt-5.5` entry
+- **400 tests across 12 suites** (was 395 / 12 in v0.11.2)
+
+### Why minor bump (v0.11.x → v0.12.0)
+
+New top-level tier in the JSON output. Detector schema gained a new
+top-level key (`managed`). User-visible enough to warrant the minor.
+Purely additive — every v0.11.x flag and provider continues to work
+unchanged.
+
+### Compat
+
+- 16 of 16 v0.11.2 default-model entries unchanged.
+- Every existing tier + provider continues to work identically.
+- Every v0.10.x/v0.11.x flag works on the new `managed/opencode` tier+provider exactly as it does on the other tiers (verified by T69's full hybrid test).
+
 ## [0.11.2] - 2026-05-18
 
 ### Added — Security agent (full set: model + temperature + tools-denial sandbox)

@@ -7,6 +7,7 @@
 #   "enterprise":     { azure_openai, aws_bedrock },
 #   "hosted_oss":     { together, groq, openrouter, cerebras, deepseek, nvidia_nim },
 #   "proprietary":    { anthropic, openai, google_aistudio, zai },
+#   "managed":        { opencode (OpenCode Zen) },
 #   "recommendation": "<tier>/<provider>"
 # }
 #
@@ -118,6 +119,12 @@ PR_ANTHROPIC_SET="$(env_set ANTHROPIC_API_KEY)"
 PR_OPENAI_SET="$(env_set OPENAI_API_KEY)"
 # v0.11.0: Z.AI GLM Coding Plan. Closed weights → proprietary tier.
 PR_ZAI_SET="$(env_set ZAI_API_KEY)"
+# v0.12.0: OpenCode Zen — managed tier. PAYG, OpenCode's hosted routing
+# service over 40+ models with a free tier. New 5th privacy tier
+# between hosted_oss and proprietary: it's vendor-managed (you don't
+# pick the upstream provider, Zen routes for you) but your prompts go
+# through OpenCode's infra, not Anthropic/OpenAI direct.
+M_OPENCODE_ZEN_SET="$(env_set OPENCODE_ZEN_API_KEY)"
 
 # Recommendation cascade — privacy-first by default. When DETECT_FREE_TIER_FIRST=1
 # (set by configure-backend.sh's --free-tier-first), bias toward providers with
@@ -137,6 +144,10 @@ recommend_privacy_first() {
   if [ "$H_NVIDIA_SET" = "true" ]; then echo "hosted_oss/nvidia_nim"; return; fi
   if [ "$H_DEEPSEEK_SET" = "true" ]; then echo "hosted_oss/deepseek"; return; fi
   if [ "$H_OPENROUTER_SET" = "true" ]; then echo "hosted_oss/openrouter"; return; fi
+  # managed tier (OpenCode Zen) sits between hosted_oss and proprietary in
+  # the privacy-first cascade: prompts go through OpenCode's hosted infra
+  # (less private than DIY hosted, more managed than your own vendor key).
+  if [ "$M_OPENCODE_ZEN_SET" = "true" ]; then echo "managed/opencode"; return; fi
   if [ "$PR_ANTHROPIC_SET" = "true" ]; then echo "proprietary/anthropic"; return; fi
   if [ "$PR_OPENAI_SET" = "true" ]; then echo "proprietary/openai"; return; fi
   if [ "$H_GOOGLE_AISTUDIO_SET" = "true" ]; then echo "proprietary/google_aistudio"; return; fi
@@ -167,6 +178,10 @@ recommend_free_tier_first() {
   # community signal (May-2026 post-OAuth-ban migration target) ranks it
   # above the other proprietary tiers when cost matters more than ceiling.
   if [ "$PR_ZAI_SET" = "true" ]; then echo "proprietary/zai"; return; fi
+  # OpenCode Zen also goes here — has a free tier (Big Pickle, DeepSeek
+  # V4 Flash Free, MiniMax M2.5 Free, Nemotron 3 Super Free) so it
+  # beats paid-per-token Anthropic/OpenAI on cost.
+  if [ "$M_OPENCODE_ZEN_SET" = "true" ]; then echo "managed/opencode"; return; fi
   if [ "$PR_ANTHROPIC_SET" = "true" ]; then echo "proprietary/anthropic"; return; fi
   if [ "$PR_OPENAI_SET" = "true" ]; then echo "proprietary/openai"; return; fi
   echo "none"
@@ -206,6 +221,9 @@ cat <<EOF
     "openai":          { "key_set": $PR_OPENAI_SET,          "env": "OPENAI_API_KEY" },
     "google_aistudio": { "key_set": $H_GOOGLE_AISTUDIO_SET,  "env": "GOOGLE_API_KEY" },
     "zai":             { "key_set": $PR_ZAI_SET,             "env": "ZAI_API_KEY" }
+  },
+  "managed": {
+    "opencode": { "key_set": $M_OPENCODE_ZEN_SET, "env": "OPENCODE_ZEN_API_KEY" }
   },
   "recommendation": "$RECOMMENDATION"
 }

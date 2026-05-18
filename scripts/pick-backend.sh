@@ -216,6 +216,8 @@ default_model_for() {
                                   echo "gemini-3.1-pro" ;;
     proprietary/zai|proprietary/z.ai|proprietary/z_ai|proprietary/glm)
                                   echo "glm-4.6" ;;
+    managed/opencode|managed/opencode_zen|managed/opencode-zen|managed/zen)
+                                  echo "gpt-5.5" ;;
     *) return 1 ;;
   esac
 }
