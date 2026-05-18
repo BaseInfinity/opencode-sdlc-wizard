@@ -2,6 +2,71 @@
 
 All notable changes to opencode-sdlc-wizard.
 
+## [0.10.4] - 2026-05-18
+
+### Added — `small_model` top-level pin (`--small-*` flags)
+
+May-17 community-patterns research found 35–40% of surveyed
+`opencode.json` files set the top-level `small_model` field — OpenCode's
+cross-cutting hint for "use this when the call is cheap" (title
+generation, summary blurbs, anywhere a small/fast model suffices over
+the global `model`). Distinct from `agent.plan.model` (which only
+affects plan-mode tasks); `small_model` is consulted by any agent.
+
+```bash
+# Set Opus as the build model, Haiku as the cheap fallback for
+# title/summary work
+npx opencode-sdlc-wizard pick \
+  --tier proprietary --provider anthropic \
+  --small-tier proprietary --small-provider anthropic --small-model claude-haiku-4-5
+```
+
+Yields:
+
+```json
+{
+  "model": "anthropic/claude-opus-4-7",
+  "small_model": "anthropic/claude-haiku-4-5",
+  "provider": { "anthropic": { ... } }
+}
+```
+
+`--small-*` composes cleanly with v0.10.0 reviewer, v0.10.1 sandboxes,
+v0.10.2 planner. Full v0.10.x stack in one call works.
+
+### Changed — `scripts/configure-backend.sh`
+
+- New `--small-tier T --small-provider P --small-model M` flags
+  (all-or-nothing triplet; partial spec exits 2)
+- `small_model` value is `"<canonical_provider>/<model>"` using the same
+  `PROVIDER_ALIASES` map
+- Small-side provider block deep-merges; same-provider as coder/reviewer/
+  planner collapses to one block
+- Canonical key order updated: top-level is now `$schema`, `model`,
+  `small_model`, `provider`, then rest alphabetical (matches the
+  joelhooks + ppries community configs we surveyed — keeps the two
+  top-level pins visually adjacent)
+
+### Changed — `scripts/pick-backend.sh`
+
+- New `--small-tier T --small-provider P [--small-model M]` flags
+- `--small-model` optional; filled from `default_model_for()` (same
+  source of truth used for coder / reviewer / planner)
+- Partial-spec validation via the existing `validate_agent_triplet()`
+  helper — no new error-handling code path
+
+### Tests
+
+- `tests/test-backend-picker.sh` adds T44–T48
+- `tests/test-pick.sh` adds T28–T32
+- **369 tests across 12 suites** (was 357 / 12 in v0.10.3)
+
+### Compat
+
+- 14 of 14 v0.10.3 default-model entries unchanged.
+- Opt-in only. Existing v0.9.x / v0.10.x configs unchanged unless
+  `--small-*` flags are passed.
+
 ## [0.10.3] - 2026-05-18
 
 ### Changed — two more research-verified default-model bumps

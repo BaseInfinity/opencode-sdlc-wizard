@@ -488,6 +488,94 @@ if [ -x "$SCRIPT" ]; then
   fi
 fi
 
+# v0.10.4 --small-* passthrough (mirrors reviewer + planner triplet shape).
+
+# T28: --small-tier + --small-provider fills small-model from default-map
+if [ -x "$SCRIPT" ]; then
+  T="$TMP_ROOT/t28"; make_target "$T" "private_local/ollama"
+  DETECT_STUB_LOG="$T/detect.log"
+  CONFIGURE_STUB_LOG="$T/configure.log"
+  (DETECT_STUB_LOG="$DETECT_STUB_LOG" CONFIGURE_STUB_LOG="$CONFIGURE_STUB_LOG" \
+   PATH="$T/stubs:$PATH" "$SCRIPT" \
+     --small-tier proprietary --small-provider google_aistudio >/dev/null 2>&1) || true
+  if [ -f "$CONFIGURE_STUB_LOG" ] \
+     && grep -q -- "--small-tier proprietary" "$CONFIGURE_STUB_LOG" \
+     && grep -q -- "--small-provider google_aistudio" "$CONFIGURE_STUB_LOG" \
+     && grep -q -- "--small-model gemini-3.1-pro" "$CONFIGURE_STUB_LOG"; then
+    pass "--small-provider google_aistudio → small-model gemini-3.1-pro default"
+  else
+    fail "small default not forwarded"
+    cat "$CONFIGURE_STUB_LOG" 2>/dev/null | head -3 >&2 || true
+  fi
+fi
+
+# T29: --small-model override beats canonical default
+if [ -x "$SCRIPT" ]; then
+  T="$TMP_ROOT/t29"; make_target "$T" "private_local/ollama"
+  DETECT_STUB_LOG="$T/detect.log"
+  CONFIGURE_STUB_LOG="$T/configure.log"
+  (DETECT_STUB_LOG="$DETECT_STUB_LOG" CONFIGURE_STUB_LOG="$CONFIGURE_STUB_LOG" \
+   PATH="$T/stubs:$PATH" "$SCRIPT" \
+     --small-tier proprietary --small-provider anthropic \
+     --small-model claude-haiku-4-5 >/dev/null 2>&1) || true
+  if [ -f "$CONFIGURE_STUB_LOG" ] && grep -q -- "--small-model claude-haiku-4-5" "$CONFIGURE_STUB_LOG"; then
+    pass "--small-model override forwards user's small model"
+  else
+    fail "--small-model override was ignored"
+  fi
+fi
+
+# T30: partial --small-* spec errors with actionable message
+if [ -x "$SCRIPT" ]; then
+  T="$TMP_ROOT/t30"; make_target "$T" "private_local/ollama"
+  DETECT_STUB_LOG="$T/detect.log"
+  CONFIGURE_STUB_LOG="$T/configure.log"
+  rc=0
+  out="$(DETECT_STUB_LOG="$DETECT_STUB_LOG" CONFIGURE_STUB_LOG="$CONFIGURE_STUB_LOG" \
+       PATH="$T/stubs:$PATH" "$SCRIPT" --small-tier proprietary 2>&1)" || rc=$?
+  if [ "$rc" -ne 0 ] && echo "$out" | grep -qi "small"; then
+    pass "partial --small-* spec rejected with small-mention error"
+  else
+    fail "partial --small-* spec did not error cleanly (rc=$rc)"
+  fi
+fi
+
+# T31: --small-* + --planner-* + --reviewer-* + --sandbox-* all compose
+if [ -x "$SCRIPT" ]; then
+  T="$TMP_ROOT/t31"; make_target "$T" "private_local/ollama"
+  DETECT_STUB_LOG="$T/detect.log"
+  CONFIGURE_STUB_LOG="$T/configure.log"
+  (DETECT_STUB_LOG="$DETECT_STUB_LOG" CONFIGURE_STUB_LOG="$CONFIGURE_STUB_LOG" \
+   PATH="$T/stubs:$PATH" "$SCRIPT" \
+     --small-tier proprietary --small-provider anthropic \
+     --planner-tier hosted_oss --planner-provider groq \
+     --reviewer-tier hosted_oss --reviewer-provider cerebras \
+     --sandbox-test-writer --sandbox-docs >/dev/null 2>&1) || true
+  if [ -f "$CONFIGURE_STUB_LOG" ] \
+     && grep -q -- "--small-provider anthropic" "$CONFIGURE_STUB_LOG" \
+     && grep -q -- "--planner-provider groq" "$CONFIGURE_STUB_LOG" \
+     && grep -q -- "--reviewer-provider cerebras" "$CONFIGURE_STUB_LOG" \
+     && grep -q -- "--sandbox-test-writer" "$CONFIGURE_STUB_LOG"; then
+    pass "Full v0.10.x: --small + --planner + --reviewer + --sandbox all compose"
+  else
+    fail "full-stack compose missing args"
+  fi
+fi
+
+# T32: no --small-* → no small args forwarded (regression guard)
+if [ -x "$SCRIPT" ]; then
+  T="$TMP_ROOT/t32"; make_target "$T" "private_local/ollama"
+  DETECT_STUB_LOG="$T/detect.log"
+  CONFIGURE_STUB_LOG="$T/configure.log"
+  (DETECT_STUB_LOG="$DETECT_STUB_LOG" CONFIGURE_STUB_LOG="$CONFIGURE_STUB_LOG" \
+   PATH="$T/stubs:$PATH" "$SCRIPT" >/dev/null 2>&1) || true
+  if [ -f "$CONFIGURE_STUB_LOG" ] && ! grep -q -- "--small-" "$CONFIGURE_STUB_LOG"; then
+    pass "pick without --small-* flags does NOT forward small args"
+  else
+    fail "pick leaked --small-* args to configure"
+  fi
+fi
+
 echo ""
 echo "=== Results: $PASS passed, $FAIL failed ==="
 [ "$FAIL" -eq 0 ] || exit 1

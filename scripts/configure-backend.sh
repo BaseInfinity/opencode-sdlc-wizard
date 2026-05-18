@@ -40,6 +40,13 @@ REVIEWER_MODEL=""
 PLANNER_TIER=""
 PLANNER_PROVIDER=""
 PLANNER_MODEL=""
+# v0.10.4 small_model: top-level fast/cheap fallback distinct from
+# agent.plan.model. Community signal: 35-40% of configs set this. Same
+# triplet shape, writes the top-level `small_model` field plus the
+# small-model provider block (deep-merged with coder/reviewer/planner).
+SMALL_TIER=""
+SMALL_PROVIDER=""
+SMALL_MODEL=""
 # v0.10.1 Per-agent permission sandboxing. Boolean flags inject canonical
 # permission.write blocks for the two highest-signal agents from May-2026
 # community-patterns research (9/15 configs use this): test-writer scoped
@@ -76,6 +83,12 @@ while [ $# -gt 0 ]; do
     --planner-provider=*) PLANNER_PROVIDER="${1#*=}" ;;
     --planner-model) shift; PLANNER_MODEL="${1:-}" ;;
     --planner-model=*) PLANNER_MODEL="${1#*=}" ;;
+    --small-tier) shift; SMALL_TIER="${1:-}" ;;
+    --small-tier=*) SMALL_TIER="${1#*=}" ;;
+    --small-provider) shift; SMALL_PROVIDER="${1:-}" ;;
+    --small-provider=*) SMALL_PROVIDER="${1#*=}" ;;
+    --small-model) shift; SMALL_MODEL="${1:-}" ;;
+    --small-model=*) SMALL_MODEL="${1#*=}" ;;
     --sandbox-test-writer) SANDBOX_TEST_WRITER=1 ;;
     --sandbox-docs) SANDBOX_DOCS=1 ;;
     -h|--help) usage; exit 0 ;;
@@ -110,6 +123,16 @@ if [ "$PL_SET" -ne 0 ] && [ "$PL_SET" -ne 3 ]; then
   exit 2
 fi
 
+# v0.10.4 small-model validation.
+SM_SET=0
+[ -n "$SMALL_TIER" ] && SM_SET=$((SM_SET+1))
+[ -n "$SMALL_PROVIDER" ] && SM_SET=$((SM_SET+1))
+[ -n "$SMALL_MODEL" ] && SM_SET=$((SM_SET+1))
+if [ "$SM_SET" -ne 0 ] && [ "$SM_SET" -ne 3 ]; then
+  echo "--small-tier / --small-provider / --small-model must all be set together (or none)" >&2
+  exit 2
+fi
+
 CONFIG_PATH="$TARGET_DIR/opencode.json"
 
 # Build the provider-specific fragment as a JSON string. We keep this in a
@@ -118,13 +141,15 @@ CONFIG_PATH="$TARGET_DIR/opencode.json"
 node - "$TIER" "$PROVIDER" "$MODEL" "$CONFIG_PATH" "$FORCE" "$PRINT_ONLY" \
      "$REVIEWER_TIER" "$REVIEWER_PROVIDER" "$REVIEWER_MODEL" \
      "$SANDBOX_TEST_WRITER" "$SANDBOX_DOCS" \
-     "$PLANNER_TIER" "$PLANNER_PROVIDER" "$PLANNER_MODEL" <<'NODE'
+     "$PLANNER_TIER" "$PLANNER_PROVIDER" "$PLANNER_MODEL" \
+     "$SMALL_TIER" "$SMALL_PROVIDER" "$SMALL_MODEL" <<'NODE'
 const fs = require("node:fs");
 const [
   tier, providerArg, model, configPath, forceStr, printOnlyStr,
   reviewerTier, reviewerProviderArg, reviewerModel,
   sandboxTestWriterStr, sandboxDocsStr,
   plannerTier, plannerProviderArg, plannerModel,
+  smallTier, smallProviderArg, smallModel,
 ] = process.argv.slice(2);
 const force = forceStr === "1";
 const printOnly = printOnlyStr === "1";
@@ -132,6 +157,7 @@ const mixedMode = Boolean(reviewerTier && reviewerProviderArg && reviewerModel);
 const sandboxTestWriter = sandboxTestWriterStr === "1";
 const sandboxDocs = sandboxDocsStr === "1";
 const plannerMode = Boolean(plannerTier && plannerProviderArg && plannerModel);
+const smallMode = Boolean(smallTier && smallProviderArg && smallModel);
 
 // Canonical provider IDs. Detector emits user-friendly aliases; we accept both
 // and emit the canonical OpenCode/models.dev ID in the written config so model
@@ -451,6 +477,17 @@ if (plannerMode) {
   });
 }
 
+// v0.10.4 small_model: top-level field (not nested under agent). Distinct
+// from agent.plan.model — small_model is OpenCode's cross-cutting hint
+// for "use this when the call is cheap" (title generation, summary
+// blurbs, etc.). 35-40% of community configs set this.
+if (smallMode) {
+  const smallProvider = PROVIDER_ALIASES[smallProviderArg] || smallProviderArg;
+  const smallFragment = fragmentFor(smallTier, smallProvider, smallModel);
+  merged.provider = deepMerge(merged.provider, smallFragment.provider || {});
+  merged.small_model = smallFragment.model;
+}
+
 // v0.10.1 Per-agent permission sandboxing. Each flag injects the canonical
 // permission.write pattern for that agent — deep-merged so it composes
 // with Mixed-Mode (--reviewer-*) and any user-set sibling fields. Patterns
@@ -489,7 +526,10 @@ function sortKeysCanonical(obj, topLevel = false) {
     const keys = Object.keys(obj);
     let ordered;
     if (topLevel) {
-      const preferred = ["$schema", "model", "provider"];
+      // v0.10.4: small_model lives right after `model` per the joelhooks
+      // and ppries community configs we surveyed — keeps the two top-level
+      // pins visually adjacent.
+      const preferred = ["$schema", "model", "small_model", "provider"];
       const front = preferred.filter((k) => keys.includes(k));
       const rest = keys.filter((k) => !preferred.includes(k)).sort();
       ordered = [...front, ...rest];

@@ -928,6 +928,115 @@ console.log('ok');
   fi
 fi
 
+# --- v0.10.4 small_model: global fast/cheap fallback. May-17 research found
+# 35-40% of community configs set this top-level field. Distinct from
+# agent.plan.model (which only affects plan-mode tasks) — small_model is
+# the cross-cutting "use this when the call is cheap" hint. Flags mirror
+# the reviewer/planner triplet shape: --small-tier T --small-provider P
+# [--small-model M, optional; filled from default-model map].
+
+# --- T44: --small-* triplet writes top-level small_model + small provider block
+if [ -x "$CONFIG" ]; then
+  T="$TMP_ROOT/t44"; mkdir -p "$T"
+  (cd "$T" && "$CONFIG" \
+     --tier proprietary --provider anthropic --model claude-opus-4-7 \
+     --small-tier proprietary --small-provider anthropic --small-model claude-haiku-4-5 \
+     >/dev/null 2>&1) || true
+  if [ -f "$T/opencode.json" ]; then
+    ok="$(node -e "
+const j=require('$T/opencode.json');
+if(j.model!=='anthropic/claude-opus-4-7'){console.log('coder-wrong:'+j.model);process.exit(1)}
+if(j.small_model!=='anthropic/claude-haiku-4-5'){console.log('small_model-wrong:'+j.small_model);process.exit(1)}
+console.log('ok');
+" 2>/dev/null || echo 'failed')"
+    if [ "$ok" = "ok" ]; then
+      pass "--small-* writes top-level small_model pin"
+    else
+      fail "T44 — $ok"
+    fi
+  fi
+fi
+
+# --- T45: --small-* uses canonical alias (e.g., google_aistudio → google)
+if [ -x "$CONFIG" ]; then
+  T="$TMP_ROOT/t45"; mkdir -p "$T"
+  (cd "$T" && "$CONFIG" \
+     --tier proprietary --provider anthropic --model claude-opus-4-7 \
+     --small-tier proprietary --small-provider google_aistudio --small-model gemini-2.5-flash \
+     >/dev/null 2>&1) || true
+  if [ -f "$T/opencode.json" ]; then
+    ok="$(node -e "
+const j=require('$T/opencode.json');
+if(j.small_model!=='google/gemini-2.5-flash'){console.log('alias-pin-wrong:'+j.small_model);process.exit(1)}
+if(!j.provider.google){console.log('alias-provider-missing');process.exit(1)}
+console.log('ok');
+" 2>/dev/null || echo 'failed')"
+    if [ "$ok" = "ok" ]; then
+      pass "--small-provider alias resolves to canonical (google_aistudio → google)"
+    else
+      fail "T45 — $ok"
+    fi
+  fi
+fi
+
+# --- T46: --small-* composes with --reviewer-* + --planner-* + --sandbox-*
+if [ -x "$CONFIG" ]; then
+  T="$TMP_ROOT/t46"; mkdir -p "$T"
+  (cd "$T" && "$CONFIG" \
+     --tier proprietary --provider anthropic --model claude-opus-4-7 \
+     --small-tier proprietary --small-provider anthropic --small-model claude-haiku-4-5 \
+     --reviewer-tier hosted_oss --reviewer-provider cerebras --reviewer-model gpt-oss-120b \
+     --planner-tier hosted_oss --planner-provider groq --planner-model gpt-oss-120b \
+     --sandbox-test-writer --sandbox-docs >/dev/null 2>&1) || true
+  if [ -f "$T/opencode.json" ]; then
+    ok="$(node -e "
+const j=require('$T/opencode.json');
+if(j.small_model!=='anthropic/claude-haiku-4-5'){console.log('small-wrong');process.exit(1)}
+if(j.agent.review.model!=='cerebras/gpt-oss-120b'){console.log('rev-wrong');process.exit(1)}
+if(j.agent.plan.model!=='groq/gpt-oss-120b'){console.log('plan-wrong');process.exit(1)}
+if(!j.agent['test-writer'].permission.write){console.log('tw-wrong');process.exit(1)}
+console.log('ok');
+" 2>/dev/null || echo 'failed')"
+    if [ "$ok" = "ok" ]; then
+      pass "Full v0.10.x: --small-* + --reviewer-* + --planner-* + --sandbox-* all compose"
+    else
+      fail "T46 — $ok"
+    fi
+  fi
+fi
+
+# --- T47: partial --small-* spec rejected (all-or-nothing triplet)
+if [ -x "$CONFIG" ]; then
+  T="$TMP_ROOT/t47"; mkdir -p "$T"
+  rc=0
+  (cd "$T" && "$CONFIG" \
+     --tier private_local --provider ollama --model qwen3-coder:30b \
+     --small-tier proprietary >/dev/null 2>&1) || rc=$?
+  if [ "$rc" -ne 0 ] && [ ! -f "$T/opencode.json" ]; then
+    pass "partial --small-* spec rejected without writing opencode.json"
+  else
+    fail "T47 — partial small spec accepted (rc=$rc)"
+  fi
+fi
+
+# --- T48: no --small-* → no top-level small_model field (opt-in only)
+if [ -x "$CONFIG" ]; then
+  T="$TMP_ROOT/t48"; mkdir -p "$T"
+  (cd "$T" && "$CONFIG" --tier private_local --provider ollama --model qwen3-coder:30b >/dev/null 2>&1) || true
+  if [ -f "$T/opencode.json" ]; then
+    ok="$(node -e "
+const j=require('$T/opencode.json');
+if('small_model' in j){console.log('unexpected-small_model');process.exit(1)}
+console.log('ok');
+" 2>/dev/null || echo 'failed')"
+    if [ "$ok" = "ok" ]; then
+      pass "no --small-* → no small_model field (opt-in regression guard)"
+    else
+      fail "T48 — $ok"
+    fi
+  fi
+fi
+
 echo ""
 echo "=== Results: $PASS passed, $FAIL failed ==="
 [ "$FAIL" -eq 0 ] || exit 1

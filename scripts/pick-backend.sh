@@ -59,6 +59,12 @@ REVIEWER_MODEL=""
 PLANNER_TIER=""
 PLANNER_PROVIDER=""
 PLANNER_MODEL=""
+# v0.10.4 small_model: global fast/cheap fallback. Same triplet shape;
+# writes top-level `small_model` (not under agent.). Per May-17 research,
+# 35-40% of community configs set this.
+SMALL_TIER=""
+SMALL_PROVIDER=""
+SMALL_MODEL=""
 # v0.10.1 Per-agent permission sandboxing. Passthrough to configure-backend's
 # matching flags — canonical permission.write block per agent (test/spec
 # files for test-writer, .md only for docs).
@@ -90,6 +96,12 @@ while [ $# -gt 0 ]; do
     --planner-provider=*) PLANNER_PROVIDER="${1#*=}" ;;
     --planner-model) shift; PLANNER_MODEL="${1:-}" ;;
     --planner-model=*) PLANNER_MODEL="${1#*=}" ;;
+    --small-tier) shift; SMALL_TIER="${1:-}" ;;
+    --small-tier=*) SMALL_TIER="${1#*=}" ;;
+    --small-provider) shift; SMALL_PROVIDER="${1:-}" ;;
+    --small-provider=*) SMALL_PROVIDER="${1#*=}" ;;
+    --small-model) shift; SMALL_MODEL="${1:-}" ;;
+    --small-model=*) SMALL_MODEL="${1#*=}" ;;
     --sandbox-test-writer) SANDBOX_TEST_WRITER=1 ;;
     --sandbox-docs) SANDBOX_DOCS=1 ;;
     -h|--help) usage; exit 0 ;;
@@ -208,6 +220,7 @@ validate_agent_triplet() {
 }
 validate_agent_triplet "reviewer" "$REVIEWER_TIER" "$REVIEWER_PROVIDER" "$REVIEWER_MODEL"
 validate_agent_triplet "planner"  "$PLANNER_TIER"  "$PLANNER_PROVIDER"  "$PLANNER_MODEL"
+validate_agent_triplet "small"    "$SMALL_TIER"    "$SMALL_PROVIDER"    "$SMALL_MODEL"
 
 # Resolve reviewer-model default if --reviewer-tier + --reviewer-provider
 # set but --reviewer-model not. Same default-model map as the coder pin.
@@ -224,6 +237,15 @@ if [ -n "$PLANNER_TIER" ] && [ -n "$PLANNER_PROVIDER" ] && [ -z "$PLANNER_MODEL"
   PLANNER_MODEL="$(default_model_for "$PLANNER_TIER" "$PLANNER_PROVIDER")" || {
     echo "pick: no default model known for planner $PLANNER_TIER/$PLANNER_PROVIDER." >&2
     echo "  Pass --planner-model <name> explicitly." >&2
+    exit 4
+  }
+fi
+
+# Same default-model fallback for the small (cheap/fast) side.
+if [ -n "$SMALL_TIER" ] && [ -n "$SMALL_PROVIDER" ] && [ -z "$SMALL_MODEL" ]; then
+  SMALL_MODEL="$(default_model_for "$SMALL_TIER" "$SMALL_PROVIDER")" || {
+    echo "pick: no default model known for small $SMALL_TIER/$SMALL_PROVIDER." >&2
+    echo "  Pass --small-model <name> explicitly." >&2
     exit 4
   }
 fi
@@ -246,6 +268,13 @@ if [ -n "$PLANNER_TIER" ]; then
     --planner-tier "$PLANNER_TIER"
     --planner-provider "$PLANNER_PROVIDER"
     --planner-model "$PLANNER_MODEL"
+  )
+fi
+if [ -n "$SMALL_TIER" ]; then
+  CONFIGURE_ARGS+=(
+    --small-tier "$SMALL_TIER"
+    --small-provider "$SMALL_PROVIDER"
+    --small-model "$SMALL_MODEL"
   )
 fi
 [ "$SANDBOX_TEST_WRITER" = "1" ] && CONFIGURE_ARGS+=(--sandbox-test-writer)
