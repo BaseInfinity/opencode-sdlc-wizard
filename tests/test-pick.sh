@@ -637,6 +637,44 @@ if [ -x "$SCRIPT" ]; then
   fi
 fi
 
+# T39: v0.11.2 --security-* + --sandbox-security + --security-temp passthrough
+if [ -x "$SCRIPT" ]; then
+  T="$TMP_ROOT/t39"; make_target "$T" "private_local/ollama"
+  DETECT_STUB_LOG="$T/detect.log"
+  CONFIGURE_STUB_LOG="$T/configure.log"
+  (DETECT_STUB_LOG="$DETECT_STUB_LOG" CONFIGURE_STUB_LOG="$CONFIGURE_STUB_LOG" \
+   PATH="$T/stubs:$PATH" "$SCRIPT" \
+     --security-tier proprietary --security-provider openai \
+     --security-temp 0.1 --sandbox-security >/dev/null 2>&1) || true
+  if [ -f "$CONFIGURE_STUB_LOG" ] \
+     && grep -q -- "--security-tier proprietary" "$CONFIGURE_STUB_LOG" \
+     && grep -q -- "--security-provider openai" "$CONFIGURE_STUB_LOG" \
+     && grep -q -- "--security-model gpt-5.3-codex" "$CONFIGURE_STUB_LOG" \
+     && grep -q -- "--security-temp 0.1" "$CONFIGURE_STUB_LOG" \
+     && grep -q -- "--sandbox-security" "$CONFIGURE_STUB_LOG"; then
+    pass "Security agent: --security-* + --security-temp + --sandbox-security all pass through"
+  else
+    fail "security passthrough missing"
+    cat "$CONFIGURE_STUB_LOG" 2>/dev/null | head -3 >&2 || true
+  fi
+fi
+
+# T40: no security flags → no security args forwarded (regression guard)
+if [ -x "$SCRIPT" ]; then
+  T="$TMP_ROOT/t40"; make_target "$T" "private_local/ollama"
+  DETECT_STUB_LOG="$T/detect.log"
+  CONFIGURE_STUB_LOG="$T/configure.log"
+  (DETECT_STUB_LOG="$DETECT_STUB_LOG" CONFIGURE_STUB_LOG="$CONFIGURE_STUB_LOG" \
+   PATH="$T/stubs:$PATH" "$SCRIPT" >/dev/null 2>&1) || true
+  if [ -f "$CONFIGURE_STUB_LOG" ] \
+     && ! grep -q -- "--security-" "$CONFIGURE_STUB_LOG" \
+     && ! grep -q -- "--sandbox-security" "$CONFIGURE_STUB_LOG"; then
+    pass "pick without --security-* / --sandbox-security does NOT forward them"
+  else
+    fail "pick leaked security args"
+  fi
+fi
+
 echo ""
 echo "=== Results: $PASS passed, $FAIL failed ==="
 [ "$FAIL" -eq 0 ] || exit 1

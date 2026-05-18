@@ -76,6 +76,12 @@ SANDBOX_PLAN=0
 CODER_TEMP=""
 PLANNER_TEMP=""
 REVIEWER_TEMP=""
+SECURITY_TEMP=""
+# v0.11.2 security agent (model triplet + sandbox flag).
+SECURITY_TIER=""
+SECURITY_PROVIDER=""
+SECURITY_MODEL=""
+SANDBOX_SECURITY=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -117,6 +123,15 @@ while [ $# -gt 0 ]; do
     --planner-temp=*) PLANNER_TEMP="${1#*=}" ;;
     --reviewer-temp) shift; REVIEWER_TEMP="${1:-}" ;;
     --reviewer-temp=*) REVIEWER_TEMP="${1#*=}" ;;
+    --security-temp) shift; SECURITY_TEMP="${1:-}" ;;
+    --security-temp=*) SECURITY_TEMP="${1#*=}" ;;
+    --security-tier) shift; SECURITY_TIER="${1:-}" ;;
+    --security-tier=*) SECURITY_TIER="${1#*=}" ;;
+    --security-provider) shift; SECURITY_PROVIDER="${1:-}" ;;
+    --security-provider=*) SECURITY_PROVIDER="${1#*=}" ;;
+    --security-model) shift; SECURITY_MODEL="${1:-}" ;;
+    --security-model=*) SECURITY_MODEL="${1#*=}" ;;
+    --sandbox-security) SANDBOX_SECURITY=1 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown arg: $1" >&2; usage >&2; exit 2 ;;
   esac
@@ -236,6 +251,7 @@ validate_agent_triplet() {
 validate_agent_triplet "reviewer" "$REVIEWER_TIER" "$REVIEWER_PROVIDER" "$REVIEWER_MODEL"
 validate_agent_triplet "planner"  "$PLANNER_TIER"  "$PLANNER_PROVIDER"  "$PLANNER_MODEL"
 validate_agent_triplet "small"    "$SMALL_TIER"    "$SMALL_PROVIDER"    "$SMALL_MODEL"
+validate_agent_triplet "security" "$SECURITY_TIER" "$SECURITY_PROVIDER" "$SECURITY_MODEL"
 
 # Resolve reviewer-model default if --reviewer-tier + --reviewer-provider
 # set but --reviewer-model not. Same default-model map as the coder pin.
@@ -261,6 +277,15 @@ if [ -n "$SMALL_TIER" ] && [ -n "$SMALL_PROVIDER" ] && [ -z "$SMALL_MODEL" ]; th
   SMALL_MODEL="$(default_model_for "$SMALL_TIER" "$SMALL_PROVIDER")" || {
     echo "pick: no default model known for small $SMALL_TIER/$SMALL_PROVIDER." >&2
     echo "  Pass --small-model <name> explicitly." >&2
+    exit 4
+  }
+fi
+
+# Security agent default-model fallback.
+if [ -n "$SECURITY_TIER" ] && [ -n "$SECURITY_PROVIDER" ] && [ -z "$SECURITY_MODEL" ]; then
+  SECURITY_MODEL="$(default_model_for "$SECURITY_TIER" "$SECURITY_PROVIDER")" || {
+    echo "pick: no default model known for security $SECURITY_TIER/$SECURITY_PROVIDER." >&2
+    echo "  Pass --security-model <name> explicitly." >&2
     exit 4
   }
 fi
@@ -298,6 +323,15 @@ fi
 [ -n "$CODER_TEMP" ]             && CONFIGURE_ARGS+=(--coder-temp "$CODER_TEMP")
 [ -n "$PLANNER_TEMP" ]           && CONFIGURE_ARGS+=(--planner-temp "$PLANNER_TEMP")
 [ -n "$REVIEWER_TEMP" ]          && CONFIGURE_ARGS+=(--reviewer-temp "$REVIEWER_TEMP")
+[ -n "$SECURITY_TEMP" ]          && CONFIGURE_ARGS+=(--security-temp "$SECURITY_TEMP")
+if [ -n "$SECURITY_TIER" ]; then
+  CONFIGURE_ARGS+=(
+    --security-tier "$SECURITY_TIER"
+    --security-provider "$SECURITY_PROVIDER"
+    --security-model "$SECURITY_MODEL"
+  )
+fi
+[ "$SANDBOX_SECURITY" = "1" ]    && CONFIGURE_ARGS+=(--sandbox-security)
 
 if [ -n "$REVIEWER_TIER" ]; then
   echo "pick: resolved coder $TIER/$PROVIDER → $MODEL + reviewer $REVIEWER_TIER/$REVIEWER_PROVIDER → $REVIEWER_MODEL" >&2
