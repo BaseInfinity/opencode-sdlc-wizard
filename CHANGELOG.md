@@ -2,6 +2,86 @@
 
 All notable changes to opencode-sdlc-wizard.
 
+## [0.10.1] - 2026-05-17
+
+### Added — Per-agent permission sandboxing (`--sandbox-test-writer` + `--sandbox-docs`)
+
+May-2026 community-patterns research: 9/15 surveyed `opencode.json`
+configurations use `agent.<name>.permission.write` to scope what each
+agent can touch. Most-cited patterns:
+
+- `test-writer` locked to test/spec files only
+- `docs` locked to `.md` only
+
+v0.10.1 exposes these as boolean flags on both `pick` and
+`configure-backend.sh`. Users wanting custom glob patterns still edit
+`opencode.json` directly.
+
+```bash
+# Full v0.10.x hybrid in one shot — Mixed-Mode coder/reviewer split
+# plus sandboxed test-writer and docs agents
+npx opencode-sdlc-wizard pick \
+  --tier proprietary --provider anthropic \
+  --reviewer-tier hosted_oss --reviewer-provider cerebras \
+  --sandbox-test-writer --sandbox-docs
+```
+
+Yields:
+
+```json
+{
+  "model": "anthropic/claude-opus-4-7",
+  "provider": {
+    "anthropic": { "options": { "apiKey": "{env:ANTHROPIC_API_KEY}" } },
+    "cerebras":  { "npm": "@ai-sdk/openai-compatible", "options": { ... } }
+  },
+  "agent": {
+    "review": { "model": "cerebras/gpt-oss-120b" },
+    "test-writer": {
+      "permission": { "write": {
+        "**/*.test.*": "allow",
+        "**/*.spec.*": "allow",
+        "*": "deny"
+      } }
+    },
+    "docs": {
+      "permission": { "write": {
+        "**/*.md": "allow",
+        "*": "deny"
+      } }
+    }
+  }
+}
+```
+
+OpenCode enforces the permission patterns at write time — the
+test-writer agent can't accidentally clobber production source even
+if its model attempts to.
+
+### Changed
+
+- `scripts/configure-backend.sh`: new `--sandbox-test-writer` and
+  `--sandbox-docs` boolean flags. The node heredoc deep-merges the
+  canonical permission blocks alongside any v0.10.0 reviewer block,
+  preserving user-set sibling fields.
+- `scripts/pick-backend.sh`: passes both flags through to the
+  configurator unchanged.
+
+### Tests
+
+- `tests/test-backend-picker.sh` adds T35–T38:
+  - T35: `--sandbox-test-writer` writes canonical `agent.test-writer.permission.write`
+  - T36: `--sandbox-docs` writes canonical `agent.docs.permission.write`
+  - T37: both sandboxes compose with `--reviewer-*` (full v0.10.x hybrid)
+  - T38: no flags → no test-writer/docs agent blocks (opt-in regression guard)
+- `tests/test-pick.sh` adds T19–T22 (passthrough + composition + regression guard).
+- **349 tests across 12 suites** (was 341 / 12 in v0.10.0).
+
+### Compat
+
+- Opt-in only. Existing configs unchanged unless the new flags are passed.
+- Composes cleanly with v0.10.0 Mixed-Mode and v0.9.x single-model pick.
+
 ## [0.10.0] - 2026-05-17
 
 ### Added — Mixed-Mode (per-agent model routing) in `pick` + `configure-backend.sh`

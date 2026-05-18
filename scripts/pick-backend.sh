@@ -53,6 +53,11 @@ FREE_TIER_FIRST=0
 REVIEWER_TIER=""
 REVIEWER_PROVIDER=""
 REVIEWER_MODEL=""
+# v0.10.1 Per-agent permission sandboxing. Passthrough to configure-backend's
+# matching flags — canonical permission.write block per agent (test/spec
+# files for test-writer, .md only for docs).
+SANDBOX_TEST_WRITER=0
+SANDBOX_DOCS=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -73,6 +78,8 @@ while [ $# -gt 0 ]; do
     --reviewer-provider=*) REVIEWER_PROVIDER="${1#*=}" ;;
     --reviewer-model) shift; REVIEWER_MODEL="${1:-}" ;;
     --reviewer-model=*) REVIEWER_MODEL="${1#*=}" ;;
+    --sandbox-test-writer) SANDBOX_TEST_WRITER=1 ;;
+    --sandbox-docs) SANDBOX_DOCS=1 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown arg: $1" >&2; usage >&2; exit 2 ;;
   esac
@@ -212,6 +219,8 @@ if [ -n "$REVIEWER_TIER" ]; then
     --reviewer-model "$REVIEWER_MODEL"
   )
 fi
+[ "$SANDBOX_TEST_WRITER" = "1" ] && CONFIGURE_ARGS+=(--sandbox-test-writer)
+[ "$SANDBOX_DOCS" = "1" ]        && CONFIGURE_ARGS+=(--sandbox-docs)
 
 if [ -n "$REVIEWER_TIER" ]; then
   echo "pick: resolved coder $TIER/$PROVIDER → $MODEL + reviewer $REVIEWER_TIER/$REVIEWER_PROVIDER → $REVIEWER_MODEL" >&2
