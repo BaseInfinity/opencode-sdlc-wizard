@@ -1325,6 +1325,115 @@ console.log('ok');
   fi
 fi
 
+# --- v0.11.2: security agent — full set (--security-* triplet for the
+# model plus --sandbox-security for tool denial and --security-temp).
+# Mirrors planner pattern: v0.10.2 --planner-* + v0.10.5 --sandbox-plan +
+# v0.11.1 --planner-temp. Joelhooks-pattern security agent dedicates a
+# specific model to "is this code safe" reviews with the same write/edit/
+# patch denial as plan-mode.
+
+# --- T61: --security-* writes agent.security.model + security provider block
+if [ -x "$CONFIG" ]; then
+  T="$TMP_ROOT/t61"; mkdir -p "$T"
+  (cd "$T" && "$CONFIG" \
+     --tier proprietary --provider anthropic --model claude-opus-4-7 \
+     --security-tier proprietary --security-provider openai --security-model gpt-5.3-codex \
+     >/dev/null 2>&1) || true
+  if [ -f "$T/opencode.json" ]; then
+    ok="$(node -e "
+const j=require('$T/opencode.json');
+if(j.agent.security.model!=='openai/gpt-5.3-codex'){console.log('sec-model-wrong:'+j.agent.security.model);process.exit(1)}
+if(!j.provider.openai){console.log('missing-sec-provider');process.exit(1)}
+console.log('ok');
+" 2>/dev/null || echo 'failed')"
+    if [ "$ok" = "ok" ]; then
+      pass "--security-* writes agent.security.model + security provider block"
+    else
+      fail "T61 — $ok"
+    fi
+  fi
+fi
+
+# --- T62: --sandbox-security injects agent.security.tools.{write,edit,patch}=false
+if [ -x "$CONFIG" ]; then
+  T="$TMP_ROOT/t62"; mkdir -p "$T"
+  (cd "$T" && "$CONFIG" \
+     --tier private_local --provider ollama --model qwen3-coder:30b \
+     --sandbox-security >/dev/null 2>&1) || true
+  if [ -f "$T/opencode.json" ]; then
+    ok="$(node -e "
+const j=require('$T/opencode.json');
+const s=j.agent && j.agent.security;
+if(!s||!s.tools){console.log('missing-sec-tools');process.exit(1)}
+if(s.tools.write!==false||s.tools.edit!==false||s.tools.patch!==false){console.log('sec-tools-wrong');process.exit(1)}
+console.log('ok');
+" 2>/dev/null || echo 'failed')"
+    if [ "$ok" = "ok" ]; then
+      pass "--sandbox-security injects agent.security.tools (write/edit/patch all false)"
+    else
+      fail "T62 — $ok"
+    fi
+  fi
+fi
+
+# --- T63: --security-* + --sandbox-security + --security-temp triple-compose
+#         (agent.security gets .model AND .tools AND .temperature)
+if [ -x "$CONFIG" ]; then
+  T="$TMP_ROOT/t63"; mkdir -p "$T"
+  (cd "$T" && "$CONFIG" \
+     --tier proprietary --provider anthropic --model claude-opus-4-7 \
+     --security-tier proprietary --security-provider openai --security-model gpt-5.3-codex \
+     --security-temp 0.1 \
+     --sandbox-security >/dev/null 2>&1) || true
+  if [ -f "$T/opencode.json" ]; then
+    ok="$(node -e "
+const j=require('$T/opencode.json');
+const s=j.agent.security;
+if(s.model!=='openai/gpt-5.3-codex'){console.log('model-wrong');process.exit(1)}
+if(s.temperature!==0.1){console.log('temp-wrong');process.exit(1)}
+if(s.tools.write!==false){console.log('tools-wrong');process.exit(1)}
+console.log('ok');
+" 2>/dev/null || echo 'failed')"
+    if [ "$ok" = "ok" ]; then
+      pass "Full security agent: --security-* + --security-temp + --sandbox-security compose"
+    else
+      fail "T63 — $ok"
+    fi
+  fi
+fi
+
+# --- T64: partial --security-* spec rejected
+if [ -x "$CONFIG" ]; then
+  T="$TMP_ROOT/t64"; mkdir -p "$T"
+  rc=0
+  (cd "$T" && "$CONFIG" \
+     --tier private_local --provider ollama --model qwen3-coder:30b \
+     --security-tier proprietary >/dev/null 2>&1) || rc=$?
+  if [ "$rc" -ne 0 ] && [ ! -f "$T/opencode.json" ]; then
+    pass "partial --security-* spec rejected without writing opencode.json"
+  else
+    fail "T64 — partial security spec accepted (rc=$rc)"
+  fi
+fi
+
+# --- T65: no security flags → no agent.security block (opt-in regression)
+if [ -x "$CONFIG" ]; then
+  T="$TMP_ROOT/t65"; mkdir -p "$T"
+  (cd "$T" && "$CONFIG" --tier private_local --provider ollama --model qwen3-coder:30b >/dev/null 2>&1) || true
+  if [ -f "$T/opencode.json" ]; then
+    ok="$(node -e "
+const j=require('$T/opencode.json');
+if(j.agent && j.agent.security){console.log('unexpected-security');process.exit(1)}
+console.log('ok');
+" 2>/dev/null || echo 'failed')"
+    if [ "$ok" = "ok" ]; then
+      pass "no --security-* / --sandbox-security flags → no agent.security block"
+    else
+      fail "T65 — $ok"
+    fi
+  fi
+fi
+
 echo ""
 echo "=== Results: $PASS passed, $FAIL failed ==="
 [ "$FAIL" -eq 0 ] || exit 1

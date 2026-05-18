@@ -66,6 +66,14 @@ SANDBOX_PLAN=0
 CODER_TEMP=""
 PLANNER_TEMP=""
 REVIEWER_TEMP=""
+SECURITY_TEMP=""
+# v0.11.2 security agent. Same triplet shape as reviewer/planner;
+# writes agent.security.model + security provider block. Plus the
+# matching --sandbox-security flag for tools.{write,edit,patch}=false.
+SECURITY_TIER=""
+SECURITY_PROVIDER=""
+SECURITY_MODEL=""
+SANDBOX_SECURITY=0
 
 usage() {
   sed -n '2,15p' "$0"
@@ -110,6 +118,15 @@ while [ $# -gt 0 ]; do
     --planner-temp=*) PLANNER_TEMP="${1#*=}" ;;
     --reviewer-temp) shift; REVIEWER_TEMP="${1:-}" ;;
     --reviewer-temp=*) REVIEWER_TEMP="${1#*=}" ;;
+    --security-temp) shift; SECURITY_TEMP="${1:-}" ;;
+    --security-temp=*) SECURITY_TEMP="${1#*=}" ;;
+    --security-tier) shift; SECURITY_TIER="${1:-}" ;;
+    --security-tier=*) SECURITY_TIER="${1#*=}" ;;
+    --security-provider) shift; SECURITY_PROVIDER="${1:-}" ;;
+    --security-provider=*) SECURITY_PROVIDER="${1#*=}" ;;
+    --security-model) shift; SECURITY_MODEL="${1:-}" ;;
+    --security-model=*) SECURITY_MODEL="${1#*=}" ;;
+    --sandbox-security) SANDBOX_SECURITY=1 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown arg: $1" >&2; usage >&2; exit 2 ;;
   esac
@@ -142,6 +159,16 @@ if [ "$PL_SET" -ne 0 ] && [ "$PL_SET" -ne 3 ]; then
   exit 2
 fi
 
+# v0.11.2 security validation: same all-or-nothing rule.
+SC_SET=0
+[ -n "$SECURITY_TIER" ] && SC_SET=$((SC_SET+1))
+[ -n "$SECURITY_PROVIDER" ] && SC_SET=$((SC_SET+1))
+[ -n "$SECURITY_MODEL" ] && SC_SET=$((SC_SET+1))
+if [ "$SC_SET" -ne 0 ] && [ "$SC_SET" -ne 3 ]; then
+  echo "--security-tier / --security-provider / --security-model must all be set together (or none)" >&2
+  exit 2
+fi
+
 # v0.10.4 small-model validation.
 SM_SET=0
 [ -n "$SMALL_TIER" ] && SM_SET=$((SM_SET+1))
@@ -163,7 +190,9 @@ node - "$TIER" "$PROVIDER" "$MODEL" "$CONFIG_PATH" "$FORCE" "$PRINT_ONLY" \
      "$PLANNER_TIER" "$PLANNER_PROVIDER" "$PLANNER_MODEL" \
      "$SMALL_TIER" "$SMALL_PROVIDER" "$SMALL_MODEL" \
      "$SANDBOX_PLAN" \
-     "$CODER_TEMP" "$PLANNER_TEMP" "$REVIEWER_TEMP" <<'NODE'
+     "$CODER_TEMP" "$PLANNER_TEMP" "$REVIEWER_TEMP" \
+     "$SECURITY_TIER" "$SECURITY_PROVIDER" "$SECURITY_MODEL" \
+     "$SECURITY_TEMP" "$SANDBOX_SECURITY" <<'NODE'
 const fs = require("node:fs");
 const [
   tier, providerArg, model, configPath, forceStr, printOnlyStr,
@@ -173,6 +202,8 @@ const [
   smallTier, smallProviderArg, smallModel,
   sandboxPlanStr,
   coderTempStr, plannerTempStr, reviewerTempStr,
+  securityTier, securityProviderArg, securityModel,
+  securityTempStr, sandboxSecurityStr,
 ] = process.argv.slice(2);
 const force = forceStr === "1";
 const printOnly = printOnlyStr === "1";
@@ -182,12 +213,15 @@ const sandboxDocs = sandboxDocsStr === "1";
 const plannerMode = Boolean(plannerTier && plannerProviderArg && plannerModel);
 const smallMode = Boolean(smallTier && smallProviderArg && smallModel);
 const sandboxPlan = sandboxPlanStr === "1";
+const securityMode = Boolean(securityTier && securityProviderArg && securityModel);
+const sandboxSecurity = sandboxSecurityStr === "1";
 // Parse temperatures only if non-empty; empty string means "not set"
 // (no temperature field emitted). Numbers preserve as numbers in JSON.
 function parseTemp(s) { return s === "" ? null : Number(s); }
 const coderTemp = parseTemp(coderTempStr);
 const plannerTemp = parseTemp(plannerTempStr);
 const reviewerTemp = parseTemp(reviewerTempStr);
+const securityTemp = parseTemp(securityTempStr);
 
 // Canonical provider IDs. Detector emits user-friendly aliases; we accept both
 // and emit the canonical OpenCode/models.dev ID in the written config so model
@@ -530,6 +564,18 @@ if (plannerMode) {
   });
 }
 
+// v0.11.2 Security mode: identical shape to planner. Writes
+// agent.security.model + security provider block. Joelhooks-pattern
+// security agent typically pairs with --sandbox-security below.
+if (securityMode) {
+  const securityProvider = PROVIDER_ALIASES[securityProviderArg] || securityProviderArg;
+  const securityFragment = fragmentFor(securityTier, securityProvider, securityModel);
+  merged.provider = deepMerge(merged.provider, securityFragment.provider || {});
+  merged.agent = deepMerge(merged.agent || existing.agent || {}, {
+    security: { model: securityFragment.model },
+  });
+}
+
 // v0.10.4 small_model: top-level field (not nested under agent). Distinct
 // from agent.plan.model — small_model is OpenCode's cross-cutting hint
 // for "use this when the call is cheap" (title generation, summary
@@ -549,7 +595,7 @@ if (smallMode) {
 // — categorical tool denial, distinct shape from the path-scoped
 // permission.write blocks above. Composes with v0.10.2 planner model
 // (agent.plan ends up with both .model AND .tools when both flags set).
-if (sandboxTestWriter || sandboxDocs || sandboxPlan) {
+if (sandboxTestWriter || sandboxDocs || sandboxPlan || sandboxSecurity) {
   const sandboxAdditions = {};
   if (sandboxTestWriter) {
     sandboxAdditions["test-writer"] = {
@@ -577,6 +623,14 @@ if (sandboxTestWriter || sandboxDocs || sandboxPlan) {
       tools: { write: false, edit: false, patch: false },
     };
   }
+  // v0.11.2: security agent denies the same tools as plan — read +
+  // reason, never write. Joelhooks-pattern; matches the canonical
+  // "security review can't accidentally apply a patch" guarantee.
+  if (sandboxSecurity) {
+    sandboxAdditions["security"] = {
+      tools: { write: false, edit: false, patch: false },
+    };
+  }
   merged.agent = deepMerge(merged.agent || existing.agent || {}, sandboxAdditions);
 }
 
@@ -584,11 +638,12 @@ if (sandboxTestWriter || sandboxDocs || sandboxPlan) {
 // agent.<name>.temperature field; deep-merges with any existing model /
 // tools / permission siblings on that agent. --coder-temp targets the
 // `build` agent (OpenCode's default agent name for code generation).
-if (coderTemp !== null || plannerTemp !== null || reviewerTemp !== null) {
+if (coderTemp !== null || plannerTemp !== null || reviewerTemp !== null || securityTemp !== null) {
   const tempAdditions = {};
   if (coderTemp !== null) tempAdditions["build"] = { temperature: coderTemp };
   if (plannerTemp !== null) tempAdditions["plan"] = { temperature: plannerTemp };
   if (reviewerTemp !== null) tempAdditions["review"] = { temperature: reviewerTemp };
+  if (securityTemp !== null) tempAdditions["security"] = { temperature: securityTemp };
   merged.agent = deepMerge(merged.agent || existing.agent || {}, tempAdditions);
 }
 

@@ -2,6 +2,83 @@
 
 All notable changes to opencode-sdlc-wizard.
 
+## [0.11.2] - 2026-05-18
+
+### Added — Security agent (full set: model + temperature + tools-denial sandbox)
+
+The joelhooks community config dedicates a `security` agent to "is this
+code safe" reviews with the same write/edit/patch denial as plan-mode.
+v0.11.2 ships the full surface for it: model triplet (mirrors v0.10.2
+planner), temperature (mirrors v0.11.1), and tool-denial sandbox
+(mirrors v0.10.5 plan).
+
+```bash
+npx opencode-sdlc-wizard pick \
+  --tier proprietary --provider anthropic \
+  --security-tier proprietary --security-provider openai --security-model gpt-5.3-codex \
+  --security-temp 0.1 \
+  --sandbox-security
+```
+
+Yields:
+
+```json
+{
+  "model": "anthropic/claude-opus-4-7",
+  "provider": {
+    "anthropic": { ... },
+    "openai":    { ... }
+  },
+  "agent": {
+    "security": {
+      "model": "openai/gpt-5.3-codex",
+      "temperature": 0.1,
+      "tools": { "write": false, "edit": false, "patch": false }
+    }
+  }
+}
+```
+
+OpenCode routes security-class agent tasks to the dedicated model, with
+deterministic temperature and zero write capability — security reviews
+can never apply a patch by accident.
+
+### New flags
+
+- `--security-tier T --security-provider P [--security-model M]` —
+  triplet (mirrors `--reviewer-*` / `--planner-*`); writes
+  `agent.security.model` + security provider block
+- `--security-temp T` — writes `agent.security.temperature` (mirrors
+  `--coder-temp` / `--planner-temp` / `--reviewer-temp`)
+- `--sandbox-security` — writes `agent.security.tools = {write/edit/patch: false}`
+  (mirrors `--sandbox-plan`)
+
+All flags opt-in, all-or-nothing on the triplet, default-model fallback
+via the same `default_model_for()` shared with coder/reviewer/planner/small.
+
+### Changed
+
+- `scripts/configure-backend.sh`: 5 new flag entries, new
+  `securityMode` block in the node heredoc, new `agent.security` cases
+  in the sandbox + temperature emission blocks
+- `scripts/pick-backend.sh`: new flags, `validate_agent_triplet "security"`
+  call, `default_model_for()` fallback, passthrough block
+
+### Tests
+
+- `tests/test-backend-picker.sh` adds T61–T65 (model writes + tools
+  sandbox + triple-compose + partial-spec rejection + regression guard)
+- `tests/test-pick.sh` adds T39–T40 (full passthrough + regression guard)
+- **395 tests across 12 suites** (was 388 / 12 in v0.11.1)
+
+### Compat
+
+- Opt-in only. v0.10.x / v0.11.0 / v0.11.1 configs unchanged.
+- Composes with every prior flag.
+- **The full v0.11.2 hybrid in one call:** coder + small_model + planner
+  + reviewer + security agents, each with their own model, temperature,
+  and (where applicable) sandbox. Five agents total covered.
+
 ## [0.11.1] - 2026-05-18
 
 ### Added — Per-agent temperatures (`--coder-temp`, `--planner-temp`, `--reviewer-temp`)
