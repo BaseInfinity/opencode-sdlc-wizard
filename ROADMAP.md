@@ -153,24 +153,49 @@ model than build work. v0.10.0 makes the split a one-flag-pair operation.
 Planner / docs / test-writer agent routing deferred to v0.10.1+ — `pick`
 gains `--planner-*` / `--docs-*` flags as each pattern is validated.
 
-## v0.10.1+ candidates (unprioritized)
+## v0.10.1 → v0.13.1 — community-signal sprint — shipped 2026-05-17 / 2026-05-18
 
-- **Per-agent `permission` sandboxing**: 9/15 surveyed configs use
-  `agent.<name>.permission.write` to scope what each agent can touch
-  (test-writer can only write `**/*.test.ts`, docs only `**/*.md`).
-  Maps directly onto our SDLC steps; pick could emit a starter block.
-- **Planner / docs / test-writer flags on `pick`**: extend Mixed-Mode
-  beyond coder + reviewer once each pattern has community validation.
+Once `pick` existed, the May-17 community-patterns research surfaced a
+clear queue: 5/6 of the highest-signal community patterns ranked above
+50% adoption in surveyed `opencode.json` files. The v0.10.1–v0.13.1
+arc shipped every one of them. Wizard is now **feature-complete relative
+to May-2026 community signals**.
+
+- ✅ v0.10.1 — `--sandbox-test-writer` + `--sandbox-docs` (path-scoped permission blocks)
+- ✅ v0.10.2 — `--planner-*` (Mixed-Mode for the plan agent; community's #1 most-overridden agent at 57%)
+- ✅ v0.10.2 — default-model bumps: openai → `gpt-5.3-codex`, google → `gemini-3.1-pro`
+- ✅ v0.10.3 — default-model bumps: deepseek → `deepseek-v4-flash`, groq → `gpt-oss-120b`
+- ✅ v0.10.4 — `--small-*` for top-level `small_model` (35–40% community adoption)
+- ✅ v0.10.5 — `--sandbox-plan` (categorical tool denial via `agent.plan.tools.{write,edit,patch}=false`)
+- ✅ v0.10.6 — cost-ladder.md recalibration (model IDs + Z.AI quarterly pricing)
+- ✅ v0.11.0 — Z.AI GLM Coding Plan as proprietary provider (post-Anthropic-OAuth-ban migration target)
+- ✅ v0.11.1 — `--coder-temp` / `--planner-temp` / `--reviewer-temp` per-agent temperatures
+- ✅ v0.11.2 — full security agent: `--security-*` triplet + `--security-temp` + `--sandbox-security`
+- ✅ v0.12.0 — new `managed` tier; OpenCode Zen (`opencode` provider; 40+ models incl. free tier)
+- ✅ v0.13.0 — new `subscription` tier; GitHub Copilot Pro+ (first OAuth-based provider, no env-var)
+- ✅ v0.13.1 — PRIVACY.md tier walkthroughs updated for the six-tier reality
+
+**Wizard surface as of v0.13.1:**
+
+- **6 tiers**: `private_local`, `enterprise`, `hosted_oss`, `managed`, `proprietary`, `subscription`
+- **17 providers** with canonical default-model entries
+- **5 first-class agents**: coder/build, small_model, planner (plan), reviewer (review), security
+- **3 sandbox shapes**: path-scoped permission.write (test-writer, docs), categorical tools-denial (plan, security)
+- **407 tests across 12 suites**
+- **15 tagged releases this sprint** (v0.8.4 → v0.13.1)
+
+## v0.13.2+ candidates (post-sprint backlog, no community-research backing)
+
+These are speculative — they have no direct community-signal evidence
+behind them. Either dogfood feedback or a fresh research pass should
+drive what's next.
+
 - **Auto-nudge integration**: `instructions-loaded-check.sh` hook
   delegates to `check-updates.sh` instead of duplicating the version-
-  check logic. Net: one source of truth, fewer drift opportunities.
-- **Copilot Pro+ as first-class provider**: per May-2026 research,
-  Copilot Pro+ ($39/mo) is now the only subscription path to Opus 4.7
-  + GPT-5.x-Codex inside OpenCode (Anthropic killed Claude Pro OAuth
-  in Feb 2026). Add `subscription` tier + Copilot config block.
-- **NIM 1M-context emphasis in cost-ladder**: per research, NVIDIA NIM
-  free tier has 1M-token context on DeepSeek V4 with RPM-only limits —
-  bigger than Cerebras's 8K-64K free cap. Underused in current docs.
+  check logic. DRY refactor; drift prevention only.
+- **NIM 1M-context emphasis in cost-ladder**: per May-2026 research,
+  NVIDIA NIM free tier has 1M-token context on DeepSeek V4 with
+  RPM-only limits — bigger than Cerebras's 8K-64K free cap. Doc patch.
 - **OPENCODE_SDLC_WIZARD.md master doc**: equivalent of parent's
   4506-line CLAUDE_CODE_SDLC_WIZARD.md. Heavier lift; defer until
   consumer feedback says it's needed.

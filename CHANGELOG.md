@@ -2,6 +2,60 @@
 
 All notable changes to opencode-sdlc-wizard.
 
+## [0.13.1] - 2026-05-18
+
+### Changed — PRIVACY.md tier walkthroughs updated for the six-tier reality
+
+Doc-only sweep. `PRIVACY.md` opened with "four backend tiers" since
+v0.2.0; v0.12.0 added `managed` (OpenCode Zen) and v0.13.0 added
+`subscription` (GitHub Copilot Pro+), but the tier walkthroughs hadn't
+caught up. v0.13.1 closes the doc drift.
+
+- **PRIVACY.md overview table** bumped from 4 rows to 6 (managed +
+  subscription added with privacy-positioning notes).
+- **New `## managed — OpenCode-routed PAYG (Zen)` section** — full
+  walkthrough with `OPENCODE_ZEN_API_KEY` setup, default model
+  (`gpt-5.5`), free-tier model example (`deepseek-v4-flash-free`),
+  privacy positioning (between hosted_oss and proprietary).
+- **New `## subscription — OAuth-managed sub bridge (Copilot Pro+)`
+  section** — full walkthrough including:
+  - Critical shape difference: auth is OAuth, not env-var/JSON-key
+  - Configure scaffolds model pin only; `opencode /connect` flow
+    completes OAuth
+  - Privacy positioning (Pro+ ToS specifically excludes training on
+    prompts; verify at the plan page)
+- **Z.AI GLM Coding Plan walkthrough** added to proprietary section
+  (was added as provider in v0.11.0 but missed in the walkthrough doc).
+
+### ROADMAP.md — v0.10.1 → v0.13.1 sprint declared shipped
+
+The v0.10.1+ candidates list (last updated in v0.10.0's ROADMAP entry)
+described an open queue. The reality: 5 of 6 highest-signal community
+patterns from May-17 research were shipped across v0.10.1–v0.13.1.
+ROADMAP now reflects this — wizard is **feature-complete relative to
+May-2026 community signals**.
+
+ROADMAP audit:
+- ✅ Per-agent permission sandboxing (v0.10.1 + v0.10.5)
+- ✅ Planner / docs / test-writer flags (v0.10.2 + v0.10.5)
+- ✅ Copilot Pro+ as first-class provider (v0.13.0)
+- ✅ Z.AI GLM (v0.11.0)
+- ✅ OpenCode Zen managed tier (v0.12.0)
+- ✅ Default-model freshness (v0.10.2 + v0.10.3)
+- ✅ small_model / per-agent temps / security agent (v0.10.4 / v0.11.1 / v0.11.2)
+
+Remaining v0.13.2+ backlog items have no community-research backing —
+moved to a "post-sprint backlog" section flagged as speculative until
+dogfood feedback or a fresh research pass surfaces signal.
+
+### Tests
+
+- No code changes; `407 tests across 12 suites` unchanged from v0.13.0.
+
+### Compat
+
+- Pure doc patch. Every flag, provider, tier, default-model unchanged.
+
 ## [0.13.0] - 2026-05-18
 
 ### Added — `subscription` tier with GitHub Copilot Pro+
