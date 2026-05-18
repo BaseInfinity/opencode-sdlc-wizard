@@ -1037,6 +1037,98 @@ console.log('ok');
   fi
 fi
 
+# --- v0.10.5 --sandbox-plan: plan-mode tool denial. Community pattern
+# (33% adoption per May-17 research): plan agent has tools.write/edit/patch
+# all set to false so the planner can read + reason but not modify code.
+# Distinct from v0.10.1 permission.write sandboxes — those are path-scoped
+# allow/deny on file writes; this is a categorical tool disablement.
+
+# --- T49: --sandbox-plan injects agent.plan.tools with all-false denial
+if [ -x "$CONFIG" ]; then
+  T="$TMP_ROOT/t49"; mkdir -p "$T"
+  (cd "$T" && "$CONFIG" \
+     --tier private_local --provider ollama --model qwen3-coder:30b \
+     --sandbox-plan >/dev/null 2>&1) || true
+  if [ -f "$T/opencode.json" ]; then
+    ok="$(node -e "
+const j=require('$T/opencode.json');
+const p=j.agent && j.agent.plan;
+if(!p||!p.tools){console.log('missing-plan-tools');process.exit(1)}
+if(p.tools.write!==false){console.log('write-not-false:'+p.tools.write);process.exit(1)}
+if(p.tools.edit!==false){console.log('edit-not-false');process.exit(1)}
+if(p.tools.patch!==false){console.log('patch-not-false');process.exit(1)}
+console.log('ok');
+" 2>/dev/null || echo 'failed')"
+    if [ "$ok" = "ok" ]; then
+      pass "--sandbox-plan injects agent.plan.tools (write/edit/patch all false)"
+    else
+      fail "T49 — $ok"
+    fi
+  fi
+fi
+
+# --- T50: --sandbox-plan + --planner-* compose — both model AND tools in agent.plan
+if [ -x "$CONFIG" ]; then
+  T="$TMP_ROOT/t50"; mkdir -p "$T"
+  (cd "$T" && "$CONFIG" \
+     --tier proprietary --provider anthropic --model claude-opus-4-7 \
+     --planner-tier hosted_oss --planner-provider groq --planner-model gpt-oss-120b \
+     --sandbox-plan >/dev/null 2>&1) || true
+  if [ -f "$T/opencode.json" ]; then
+    ok="$(node -e "
+const j=require('$T/opencode.json');
+if(j.agent.plan.model!=='groq/gpt-oss-120b'){console.log('plan-model-wrong:'+j.agent.plan.model);process.exit(1)}
+if(j.agent.plan.tools.write!==false){console.log('plan-tools-wrong');process.exit(1)}
+console.log('ok');
+" 2>/dev/null || echo 'failed')"
+    if [ "$ok" = "ok" ]; then
+      pass "--sandbox-plan + --planner-* compose (agent.plan has both model AND tools)"
+    else
+      fail "T50 — $ok"
+    fi
+  fi
+fi
+
+# --- T51: all three sandboxes (plan/test-writer/docs) compose in one call
+if [ -x "$CONFIG" ]; then
+  T="$TMP_ROOT/t51"; mkdir -p "$T"
+  (cd "$T" && "$CONFIG" \
+     --tier private_local --provider ollama --model qwen3-coder:30b \
+     --sandbox-plan --sandbox-test-writer --sandbox-docs >/dev/null 2>&1) || true
+  if [ -f "$T/opencode.json" ]; then
+    ok="$(node -e "
+const j=require('$T/opencode.json');
+if(!j.agent.plan||!j.agent.plan.tools){console.log('no-plan-sandbox');process.exit(1)}
+if(!j.agent['test-writer']||!j.agent['test-writer'].permission){console.log('no-tw-sandbox');process.exit(1)}
+if(!j.agent.docs||!j.agent.docs.permission){console.log('no-docs-sandbox');process.exit(1)}
+console.log('ok');
+" 2>/dev/null || echo 'failed')"
+    if [ "$ok" = "ok" ]; then
+      pass "all three sandboxes (plan/test-writer/docs) compose"
+    else
+      fail "T51 — $ok"
+    fi
+  fi
+fi
+
+# --- T52: no --sandbox-plan → no agent.plan.tools block (opt-in regression)
+if [ -x "$CONFIG" ]; then
+  T="$TMP_ROOT/t52"; mkdir -p "$T"
+  (cd "$T" && "$CONFIG" --tier private_local --provider ollama --model qwen3-coder:30b >/dev/null 2>&1) || true
+  if [ -f "$T/opencode.json" ]; then
+    ok="$(node -e "
+const j=require('$T/opencode.json');
+if(j.agent && j.agent.plan && j.agent.plan.tools){console.log('unexpected-plan-tools');process.exit(1)}
+console.log('ok');
+" 2>/dev/null || echo 'failed')"
+    if [ "$ok" = "ok" ]; then
+      pass "no --sandbox-plan → no agent.plan.tools block (opt-in regression guard)"
+    else
+      fail "T52 — $ok"
+    fi
+  fi
+fi
+
 echo ""
 echo "=== Results: $PASS passed, $FAIL failed ==="
 [ "$FAIL" -eq 0 ] || exit 1

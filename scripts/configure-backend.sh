@@ -54,6 +54,11 @@ SMALL_MODEL=""
 # glob patterns edit opencode.json directly.
 SANDBOX_TEST_WRITER=0
 SANDBOX_DOCS=0
+# v0.10.5 --sandbox-plan: plan-mode tool denial. Sets agent.plan.tools
+# write/edit/patch all false so the planner can read + reason but not
+# modify code. Distinct from v0.10.1 permission.write blocks — those
+# are path-scoped allow/deny on writes; this is categorical tool disable.
+SANDBOX_PLAN=0
 
 usage() {
   sed -n '2,15p' "$0"
@@ -91,6 +96,7 @@ while [ $# -gt 0 ]; do
     --small-model=*) SMALL_MODEL="${1#*=}" ;;
     --sandbox-test-writer) SANDBOX_TEST_WRITER=1 ;;
     --sandbox-docs) SANDBOX_DOCS=1 ;;
+    --sandbox-plan) SANDBOX_PLAN=1 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown arg: $1" >&2; usage >&2; exit 2 ;;
   esac
@@ -142,7 +148,8 @@ node - "$TIER" "$PROVIDER" "$MODEL" "$CONFIG_PATH" "$FORCE" "$PRINT_ONLY" \
      "$REVIEWER_TIER" "$REVIEWER_PROVIDER" "$REVIEWER_MODEL" \
      "$SANDBOX_TEST_WRITER" "$SANDBOX_DOCS" \
      "$PLANNER_TIER" "$PLANNER_PROVIDER" "$PLANNER_MODEL" \
-     "$SMALL_TIER" "$SMALL_PROVIDER" "$SMALL_MODEL" <<'NODE'
+     "$SMALL_TIER" "$SMALL_PROVIDER" "$SMALL_MODEL" \
+     "$SANDBOX_PLAN" <<'NODE'
 const fs = require("node:fs");
 const [
   tier, providerArg, model, configPath, forceStr, printOnlyStr,
@@ -150,6 +157,7 @@ const [
   sandboxTestWriterStr, sandboxDocsStr,
   plannerTier, plannerProviderArg, plannerModel,
   smallTier, smallProviderArg, smallModel,
+  sandboxPlanStr,
 ] = process.argv.slice(2);
 const force = forceStr === "1";
 const printOnly = printOnlyStr === "1";
@@ -158,6 +166,7 @@ const sandboxTestWriter = sandboxTestWriterStr === "1";
 const sandboxDocs = sandboxDocsStr === "1";
 const plannerMode = Boolean(plannerTier && plannerProviderArg && plannerModel);
 const smallMode = Boolean(smallTier && smallProviderArg && smallModel);
+const sandboxPlan = sandboxPlanStr === "1";
 
 // Canonical provider IDs. Detector emits user-friendly aliases; we accept both
 // and emit the canonical OpenCode/models.dev ID in the written config so model
@@ -492,7 +501,11 @@ if (smallMode) {
 // permission.write pattern for that agent — deep-merged so it composes
 // with Mixed-Mode (--reviewer-*) and any user-set sibling fields. Patterns
 // derived from the most-cited community examples (joelhooks, ppries gists).
-if (sandboxTestWriter || sandboxDocs) {
+// v0.10.5: --sandbox-plan adds agent.plan.tools = {write,edit,patch: false}
+// — categorical tool denial, distinct shape from the path-scoped
+// permission.write blocks above. Composes with v0.10.2 planner model
+// (agent.plan ends up with both .model AND .tools when both flags set).
+if (sandboxTestWriter || sandboxDocs || sandboxPlan) {
   const sandboxAdditions = {};
   if (sandboxTestWriter) {
     sandboxAdditions["test-writer"] = {
@@ -513,6 +526,11 @@ if (sandboxTestWriter || sandboxDocs) {
           "*": "deny",
         },
       },
+    };
+  }
+  if (sandboxPlan) {
+    sandboxAdditions["plan"] = {
+      tools: { write: false, edit: false, patch: false },
     };
   }
   merged.agent = deepMerge(merged.agent || existing.agent || {}, sandboxAdditions);

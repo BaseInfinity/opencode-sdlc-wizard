@@ -576,6 +576,34 @@ if [ -x "$SCRIPT" ]; then
   fi
 fi
 
+# T33: --sandbox-plan passthrough
+if [ -x "$SCRIPT" ]; then
+  T="$TMP_ROOT/t33"; make_target "$T" "private_local/ollama"
+  DETECT_STUB_LOG="$T/detect.log"
+  CONFIGURE_STUB_LOG="$T/configure.log"
+  (DETECT_STUB_LOG="$DETECT_STUB_LOG" CONFIGURE_STUB_LOG="$CONFIGURE_STUB_LOG" \
+   PATH="$T/stubs:$PATH" "$SCRIPT" --sandbox-plan >/dev/null 2>&1) || true
+  if [ -f "$CONFIGURE_STUB_LOG" ] && grep -q -- "--sandbox-plan" "$CONFIGURE_STUB_LOG"; then
+    pass "--sandbox-plan passes through to configure-backend"
+  else
+    fail "--sandbox-plan was dropped"
+  fi
+fi
+
+# T34: no --sandbox-plan → no passthrough (regression guard)
+if [ -x "$SCRIPT" ]; then
+  T="$TMP_ROOT/t34"; make_target "$T" "private_local/ollama"
+  DETECT_STUB_LOG="$T/detect.log"
+  CONFIGURE_STUB_LOG="$T/configure.log"
+  (DETECT_STUB_LOG="$DETECT_STUB_LOG" CONFIGURE_STUB_LOG="$CONFIGURE_STUB_LOG" \
+   PATH="$T/stubs:$PATH" "$SCRIPT" >/dev/null 2>&1) || true
+  if [ -f "$CONFIGURE_STUB_LOG" ] && ! grep -q -- "--sandbox-plan" "$CONFIGURE_STUB_LOG"; then
+    pass "pick without --sandbox-plan does NOT forward it"
+  else
+    fail "pick leaked --sandbox-plan"
+  fi
+fi
+
 echo ""
 echo "=== Results: $PASS passed, $FAIL failed ==="
 [ "$FAIL" -eq 0 ] || exit 1
