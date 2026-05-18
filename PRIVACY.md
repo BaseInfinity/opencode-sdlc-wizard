@@ -109,10 +109,10 @@ insufficient and an enterprise tenant is unavailable.
 | Provider | Suggested model | Notes |
 |----------|-----------------|-------|
 | Together | `Qwen/Qwen2.5-Coder-32B-Instruct` | Stable, paid hosting |
-| Groq | `llama-3.3-70b-versatile` | Fastest hosted, free daily quota |
+| Groq | `gpt-oss-120b` | Fastest hosted, free daily quota; OpenAI's open-weights release on Groq's LPU stack |
 | OpenRouter | `qwen/qwen-2.5-coder-32b-instruct` | Aggregator routing across providers |
 | Cerebras | `gpt-oss-120b` or `qwen-3-235b-a22b-instruct-2507` | Free tier, ~2000 tok/s |
-| DeepSeek direct | `deepseek-chat` | Cheapest paid hosted (~$0.14/M cache-miss) |
+| DeepSeek direct | `deepseek-v4-flash` | Cheapest paid hosted; V4 family shipped 2026-04-24 |
 | NVIDIA NIM (`nvidia_nim`) | `deepseek-ai/deepseek-r1` | Free credits at build.nvidia.com |
 
 ```bash
@@ -126,7 +126,7 @@ bash .opencode/scripts/configure-backend.sh \
 export DEEPSEEK_API_KEY="..."
 bash .opencode/scripts/configure-backend.sh \
      --tier hosted_oss --provider deepseek \
-     --model "deepseek-chat"
+     --model "deepseek-v4-flash"
 
 # Stable paid — Together
 export TOGETHER_API_KEY="..."

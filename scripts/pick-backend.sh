@@ -164,10 +164,10 @@ default_model_for() {
                                   echo "anthropic.claude-sonnet-4-5-20250929-v1:0" ;;
     hosted_oss/together|hosted_oss/togetherai)
                                   echo "Qwen/Qwen2.5-Coder-32B-Instruct" ;;
-    hosted_oss/groq)              echo "llama-3.3-70b-versatile" ;;
+    hosted_oss/groq)              echo "gpt-oss-120b" ;;
     hosted_oss/openrouter)        echo "qwen/qwen-2.5-coder-32b-instruct" ;;
     hosted_oss/cerebras)          echo "gpt-oss-120b" ;;
-    hosted_oss/deepseek)          echo "deepseek-chat" ;;
+    hosted_oss/deepseek)          echo "deepseek-v4-flash" ;;
     hosted_oss/nvidia_nim|hosted_oss/nvidia|hosted_oss/nvidia-nim)
                                   echo "deepseek-ai/deepseek-r1" ;;
     proprietary/anthropic)        echo "claude-opus-4-7" ;;
