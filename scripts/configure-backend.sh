@@ -7,6 +7,7 @@
 #   enterprise      azure_openai / aws_bedrock
 #   hosted_oss      together / groq / openrouter / cerebras / deepseek / nvidia_nim
 #   proprietary     anthropic / openai / google_aistudio / zai
+#   managed         opencode (OpenCode Zen — vendor-routed PAYG over 40+ models)
 #
 # Usage:
 #   configure-backend.sh --tier <tier> --provider <provider> --model <model>
@@ -263,6 +264,13 @@ const PROVIDER_ALIASES = {
   "z.ai": "zai",
   z_ai: "zai",
   glm: "zai",
+  // v0.12.0: OpenCode Zen — managed tier, vendor-routed PAYG over 40+
+  // models. Canonical provider id in opencode.json is "opencode" per
+  // Zen's docs (model pin format: "opencode/<model>").
+  opencode: "opencode",
+  opencode_zen: "opencode",
+  "opencode-zen": "opencode",
+  zen: "opencode",
 };
 const provider = PROVIDER_ALIASES[providerArg] || providerArg;
 
@@ -484,6 +492,26 @@ function fragmentFor(tier, provider, model) {
             options: {
               apiKey: "{env:ZAI_API_KEY}",
               baseURL: "https://api.z.ai/api/paas/v4",
+            },
+            models: { [model]: {} },
+          },
+        },
+      };
+    case "managed/opencode":
+      // OpenCode Zen — vendor-managed routing over 40+ models including
+      // a free tier (Big Pickle, DeepSeek V4 Flash Free, MiniMax M2.5
+      // Free, Nemotron 3 Super Free). PAYG, $5 auto-reload trigger.
+      // Provider id is "opencode" per Zen's own docs (model pin format
+      // "opencode/<model>"). OpenAI-compatible endpoint at
+      // https://opencode.ai/zen/v1.
+      return {
+        model: `opencode/${model}`,
+        provider: {
+          opencode: {
+            npm: "@ai-sdk/openai-compatible",
+            options: {
+              apiKey: "{env:OPENCODE_ZEN_API_KEY}",
+              baseURL: "https://opencode.ai/zen/v1",
             },
             models: { [model]: {} },
           },

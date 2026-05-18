@@ -246,7 +246,8 @@ for combo in \
     "proprietary/anthropic:claude" \
     "proprietary/openai:gpt" \
     "proprietary/google_aistudio:gemini" \
-    "proprietary/zai:glm"; do
+    "proprietary/zai:glm" \
+    "managed/opencode:gpt-5.5"; do
   combo_pair="${combo%%:*}"
   expected_substr="${combo##*:}"
   T="$TMP_ROOT/t12-${combo_pair//\//-}"; make_target "$T" "private_local/ollama"

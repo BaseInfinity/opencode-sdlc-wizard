@@ -1434,6 +1434,102 @@ console.log('ok');
   fi
 fi
 
+# --- v0.12.0: OpenCode Zen as new 5th "managed" tier. Vendor-routed PAYG
+# over 40+ models including a free tier. Provider id `opencode` (per Zen's
+# own docs — model pin format `opencode/<model>`). Aliases: opencode_zen,
+# opencode-zen, zen. baseURL https://opencode.ai/zen/v1, env OPENCODE_ZEN_API_KEY.
+
+# --- T66: configure-backend writes correct OpenCode Zen provider block
+if [ -x "$CONFIG" ]; then
+  T="$TMP_ROOT/t66"; mkdir -p "$T"
+  (cd "$T" && "$CONFIG" --tier managed --provider opencode --model "gpt-5.5" >/dev/null 2>&1) || true
+  if [ -f "$T/opencode.json" ]; then
+    ok="$(node -e "
+const j=require('$T/opencode.json');
+if(j.model!=='opencode/gpt-5.5'){console.log('model-wrong:'+j.model);process.exit(1)}
+if(!j.provider||!j.provider.opencode){console.log('missing-opencode-block');process.exit(1)}
+const opts=j.provider.opencode.options||{};
+if(opts.apiKey!=='{env:OPENCODE_ZEN_API_KEY}'){console.log('wrong-apikey:'+opts.apiKey);process.exit(1)}
+if(opts.baseURL!=='https://opencode.ai/zen/v1'){console.log('wrong-baseurl:'+opts.baseURL);process.exit(1)}
+if(j.provider.opencode.npm!=='@ai-sdk/openai-compatible'){console.log('wrong-npm');process.exit(1)}
+if(!j.provider.opencode.models||!j.provider.opencode.models['gpt-5.5']){console.log('missing-model-entry');process.exit(1)}
+console.log('ok');
+" 2>/dev/null || echo 'failed')"
+    if [ "$ok" = "ok" ]; then
+      pass "configure-backend writes OpenCode Zen provider block (managed/opencode, gpt-5.5)"
+    else
+      fail "T66 — $ok"
+    fi
+  fi
+fi
+
+# --- T67: Zen aliases (zen, opencode_zen, opencode-zen) resolve to canonical 'opencode'
+if [ -x "$CONFIG" ]; then
+  T="$TMP_ROOT/t67"; mkdir -p "$T"
+  (cd "$T" && "$CONFIG" --tier managed --provider zen --model "gpt-5.5" >/dev/null 2>&1) || true
+  if [ -f "$T/opencode.json" ]; then
+    ok="$(node -e "
+const j=require('$T/opencode.json');
+if(j.model!=='opencode/gpt-5.5'){console.log('alias-pin-wrong:'+j.model);process.exit(1)}
+if(!j.provider.opencode){console.log('alias-block-missing');process.exit(1)}
+if(j.provider.zen){console.log('non-canonical-key-present');process.exit(1)}
+console.log('ok');
+" 2>/dev/null || echo 'failed')"
+    if [ "$ok" = "ok" ]; then
+      pass "OpenCode Zen alias 'zen' resolves to canonical 'opencode' provider id"
+    else
+      fail "T67 — $ok"
+    fi
+  fi
+fi
+
+# --- T68: detect-backends picks up OPENCODE_ZEN_API_KEY and emits managed/opencode
+if [ -x "$DETECT" ]; then
+  FAKE_HOME="$TMP_ROOT/t68-home"; mkdir -p "$FAKE_HOME"
+  ok="$(env -i HOME="$FAKE_HOME" PATH="/usr/bin:/bin" OPENCODE_ZEN_API_KEY="x" "$DETECT" 2>/dev/null | node -e "
+let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{
+  try{const j=JSON.parse(d);
+    if(!j.managed||!j.managed.opencode){console.log('no-managed-block');process.exit(1)}
+    if(j.managed.opencode.key_set!==true){console.log('not-detected');process.exit(1)}
+    if(j.managed.opencode.env!=='OPENCODE_ZEN_API_KEY'){console.log('wrong-env');process.exit(1)}
+    if(j.recommendation!=='managed/opencode'){console.log('not-recommended:'+j.recommendation);process.exit(1)}
+    console.log('ok');
+  }catch(e){console.log('parse-fail:'+e.message)}
+})" 2>/dev/null || echo 'failed')"
+  if [ "$ok" = "ok" ]; then
+    pass "detect-backends picks up OPENCODE_ZEN_API_KEY and recommends managed/opencode"
+  else
+    fail "T68 — $ok"
+  fi
+fi
+
+# --- T69: managed tier composes with all v0.10.x/v0.11.x agent flags
+#         (the entire flag surface should work on the new tier too)
+if [ -x "$CONFIG" ]; then
+  T="$TMP_ROOT/t69"; mkdir -p "$T"
+  (cd "$T" && "$CONFIG" \
+     --tier managed --provider opencode --model gpt-5.5 \
+     --reviewer-tier managed --reviewer-provider opencode --reviewer-model claude-opus-4-7 \
+     --sandbox-test-writer --coder-temp 0.3 >/dev/null 2>&1) || true
+  if [ -f "$T/opencode.json" ]; then
+    ok="$(node -e "
+const j=require('$T/opencode.json');
+if(j.model!=='opencode/gpt-5.5'){console.log('coder-wrong');process.exit(1)}
+if(j.agent.review.model!=='opencode/claude-opus-4-7'){console.log('rev-wrong:'+j.agent.review.model);process.exit(1)}
+if(j.agent.build.temperature!==0.3){console.log('temp-wrong');process.exit(1)}
+if(!j.agent['test-writer']){console.log('no-tw');process.exit(1)}
+// Both coder and reviewer use same provider (opencode) — single provider block
+if(Object.keys(j.provider).length!==1){console.log('expected-single-provider-got:'+Object.keys(j.provider).join(','));process.exit(1)}
+console.log('ok');
+" 2>/dev/null || echo 'failed')"
+    if [ "$ok" = "ok" ]; then
+      pass "managed/opencode composes with --reviewer-* / --sandbox-* / --*-temp (full v0.11.x surface)"
+    else
+      fail "T69 — $ok"
+    fi
+  fi
+fi
+
 echo ""
 echo "=== Results: $PASS passed, $FAIL failed ==="
 [ "$FAIL" -eq 0 ] || exit 1
