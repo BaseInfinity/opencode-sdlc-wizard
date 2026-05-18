@@ -2,6 +2,64 @@
 
 All notable changes to opencode-sdlc-wizard.
 
+## [0.10.5] - 2026-05-18
+
+### Added — `--sandbox-plan` (plan-mode tool denial)
+
+May-17 research: 33% of community configs set `agent.plan.tools` to
+deny `write`/`edit`/`patch` so the planner can read + reason but
+can't modify code. Categorically stronger than path-scoped
+`permission.write` blocks (v0.10.1) — the tool itself isn't available.
+
+```bash
+# Plan model can analyze, propose, brainstorm — but cannot touch files
+npx opencode-sdlc-wizard pick \
+  --tier proprietary --provider anthropic \
+  --planner-tier hosted_oss --planner-provider groq \
+  --sandbox-plan
+```
+
+Yields:
+
+```json
+{
+  "model": "anthropic/claude-opus-4-7",
+  "agent": {
+    "plan": {
+      "model": "groq/gpt-oss-120b",
+      "tools": { "write": false, "edit": false, "patch": false }
+    }
+  }
+}
+```
+
+`agent.plan.model` (v0.10.2) and `agent.plan.tools` (v0.10.5)
+deep-merge into the same `plan` object.
+
+### Changed
+
+- `scripts/configure-backend.sh`: new `--sandbox-plan` boolean flag.
+  Reuses the existing sandbox emission block — `plan: { tools: ... }`
+  is the third sandbox shape alongside `test-writer` and `docs`.
+- `scripts/pick-backend.sh`: `--sandbox-plan` passthrough.
+
+### Tests
+
+- `tests/test-backend-picker.sh` adds T49–T52:
+  - T49: `--sandbox-plan` writes `agent.plan.tools.{write,edit,patch} = false`
+  - T50: `--sandbox-plan` + `--planner-*` compose (both `.model` and `.tools` present)
+  - T51: all three sandbox flags (`plan`/`test-writer`/`docs`) compose
+  - T52: regression guard — no `agent.plan.tools` without the flag
+- `tests/test-pick.sh` adds T33–T34 (passthrough + regression guard)
+- **375 tests across 12 suites** (was 369 / 12 in v0.10.4)
+
+### Compat
+
+- Three sandbox patterns now available: `--sandbox-test-writer` (path),
+  `--sandbox-docs` (path), `--sandbox-plan` (categorical tool denial).
+- All opt-in. v0.9.x and v0.10.x configs unchanged unless flags passed.
+- Full v0.10.x stack: `pick --model M --small-* --planner-* --reviewer-* --sandbox-test-writer --sandbox-docs --sandbox-plan` produces the canonical 4-agent SDLC config in one call.
+
 ## [0.10.4] - 2026-05-18
 
 ### Added — `small_model` top-level pin (`--small-*` flags)
