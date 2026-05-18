@@ -818,6 +818,116 @@ console.log('ok');
   fi
 fi
 
+# --- v0.10.2 Planner agent model routing. Community-patterns Q-A (May 2026):
+# `plan` is the second-most-routed agent after `review` — typical split is
+# plan=small/fast (haiku, gpt-5-mini, glm-4.5-air), build=mid, review=high.
+# v0.10.2 mirrors the v0.10.0 reviewer flags for the planner agent.
+
+# --- T39: --planner-* triplet writes agent.plan.model + planner provider block
+if [ -x "$CONFIG" ]; then
+  T="$TMP_ROOT/t39"; mkdir -p "$T"
+  (cd "$T" && "$CONFIG" \
+     --tier proprietary --provider anthropic --model claude-opus-4-7 \
+     --planner-tier hosted_oss --planner-provider groq --planner-model llama-3.3-70b-versatile \
+     >/dev/null 2>&1) || true
+  if [ -f "$T/opencode.json" ]; then
+    ok="$(node -e "
+const j=require('$T/opencode.json');
+if(j.model!=='anthropic/claude-opus-4-7'){console.log('coder-wrong:'+j.model);process.exit(1)}
+if(!j.agent||!j.agent.plan||!j.agent.plan.model){console.log('missing-agent-plan');process.exit(1)}
+if(j.agent.plan.model!=='groq/llama-3.3-70b-versatile'){console.log('plan-model-wrong:'+j.agent.plan.model);process.exit(1)}
+if(!j.provider.anthropic){console.log('missing-coder-provider');process.exit(1)}
+if(!j.provider.groq){console.log('missing-planner-provider');process.exit(1)}
+console.log('ok');
+" 2>/dev/null || echo 'failed')"
+    if [ "$ok" = "ok" ]; then
+      pass "Planner: --planner-* writes agent.plan.model + planner provider block"
+    else
+      fail "T39 — $ok"
+    fi
+  fi
+fi
+
+# --- T40: --reviewer-* + --planner-* compose — both agent blocks present
+if [ -x "$CONFIG" ]; then
+  T="$TMP_ROOT/t40"; mkdir -p "$T"
+  (cd "$T" && "$CONFIG" \
+     --tier proprietary --provider anthropic --model claude-sonnet-4-5 \
+     --reviewer-tier proprietary --reviewer-provider anthropic --reviewer-model claude-opus-4-7 \
+     --planner-tier hosted_oss --planner-provider cerebras --planner-model gpt-oss-120b \
+     >/dev/null 2>&1) || true
+  if [ -f "$T/opencode.json" ]; then
+    ok="$(node -e "
+const j=require('$T/opencode.json');
+if(j.agent.review.model!=='anthropic/claude-opus-4-7'){console.log('reviewer-wrong');process.exit(1)}
+if(j.agent.plan.model!=='cerebras/gpt-oss-120b'){console.log('plan-wrong:'+j.agent.plan.model);process.exit(1)}
+if(!j.provider.cerebras){console.log('missing-planner-provider');process.exit(1)}
+console.log('ok');
+" 2>/dev/null || echo 'failed')"
+    if [ "$ok" = "ok" ]; then
+      pass "Planner + Reviewer compose — both agent blocks present, dual provider blocks"
+    else
+      fail "T40 — $ok"
+    fi
+  fi
+fi
+
+# --- T41: planner alias resolution (e.g., google_aistudio → google) parity
+#         with reviewer side (matches v0.10.0 T33 pattern)
+if [ -x "$CONFIG" ]; then
+  T="$TMP_ROOT/t41"; mkdir -p "$T"
+  (cd "$T" && "$CONFIG" \
+     --tier proprietary --provider openai --model gpt-5 \
+     --planner-tier proprietary --planner-provider google_aistudio --planner-model gemini-2.5-flash \
+     >/dev/null 2>&1) || true
+  if [ -f "$T/opencode.json" ]; then
+    ok="$(node -e "
+const j=require('$T/opencode.json');
+if(j.agent.plan.model!=='google/gemini-2.5-flash'){console.log('alias-pin-wrong:'+j.agent.plan.model);process.exit(1)}
+if(!j.provider.google){console.log('alias-provider-missing');process.exit(1)}
+if(j.provider.google_aistudio){console.log('non-canonical-key-present');process.exit(1)}
+console.log('ok');
+" 2>/dev/null || echo 'failed')"
+    if [ "$ok" = "ok" ]; then
+      pass "Planner: --planner-provider alias resolves to canonical (google_aistudio → google)"
+    else
+      fail "T41 — $ok"
+    fi
+  fi
+fi
+
+# --- T42: partial --planner-* spec (e.g., --planner-tier alone) rejected
+if [ -x "$CONFIG" ]; then
+  T="$TMP_ROOT/t42"; mkdir -p "$T"
+  rc=0
+  (cd "$T" && "$CONFIG" \
+     --tier private_local --provider ollama --model qwen3-coder:30b \
+     --planner-tier hosted_oss >/dev/null 2>&1) || rc=$?
+  if [ "$rc" -ne 0 ] && [ ! -f "$T/opencode.json" ]; then
+    pass "partial --planner-* spec rejected without writing opencode.json"
+  else
+    fail "T42 — partial planner spec was accepted (rc=$rc)"
+  fi
+fi
+
+# --- T43: no --planner-* → no agent.plan block (regression guard, opt-in only)
+if [ -x "$CONFIG" ]; then
+  T="$TMP_ROOT/t43"; mkdir -p "$T"
+  (cd "$T" && "$CONFIG" --tier private_local --provider ollama --model qwen3-coder:30b >/dev/null 2>&1) || true
+  if [ -f "$T/opencode.json" ]; then
+    ok="$(node -e "
+const j=require('$T/opencode.json');
+if(j.agent && j.agent.plan){console.log('unexpected-agent-plan');process.exit(1)}
+console.log('ok');
+" 2>/dev/null || echo 'failed')"
+    if [ "$ok" = "ok" ]; then
+      pass "no --planner-* → no agent.plan block (opt-in only)"
+    else
+      fail "T43 — $ok"
+    fi
+  fi
+fi
+
 echo ""
 echo "=== Results: $PASS passed, $FAIL failed ==="
 [ "$FAIL" -eq 0 ] || exit 1

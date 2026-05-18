@@ -33,6 +33,13 @@ PRINT_ONLY=0
 REVIEWER_TIER=""
 REVIEWER_PROVIDER=""
 REVIEWER_MODEL=""
+# v0.10.2 Planner agent model routing. Same shape as v0.10.0 reviewer
+# flags. Per-community usage: `plan` is the second-most-routed agent
+# after `review` — typical split is plan=small/fast, build=mid,
+# review=high. Writes `agent.plan.model` block + planner provider block.
+PLANNER_TIER=""
+PLANNER_PROVIDER=""
+PLANNER_MODEL=""
 # v0.10.1 Per-agent permission sandboxing. Boolean flags inject canonical
 # permission.write blocks for the two highest-signal agents from May-2026
 # community-patterns research (9/15 configs use this): test-writer scoped
@@ -63,6 +70,12 @@ while [ $# -gt 0 ]; do
     --reviewer-provider=*) REVIEWER_PROVIDER="${1#*=}" ;;
     --reviewer-model) shift; REVIEWER_MODEL="${1:-}" ;;
     --reviewer-model=*) REVIEWER_MODEL="${1#*=}" ;;
+    --planner-tier) shift; PLANNER_TIER="${1:-}" ;;
+    --planner-tier=*) PLANNER_TIER="${1#*=}" ;;
+    --planner-provider) shift; PLANNER_PROVIDER="${1:-}" ;;
+    --planner-provider=*) PLANNER_PROVIDER="${1#*=}" ;;
+    --planner-model) shift; PLANNER_MODEL="${1:-}" ;;
+    --planner-model=*) PLANNER_MODEL="${1#*=}" ;;
     --sandbox-test-writer) SANDBOX_TEST_WRITER=1 ;;
     --sandbox-docs) SANDBOX_DOCS=1 ;;
     -h|--help) usage; exit 0 ;;
@@ -87,6 +100,16 @@ if [ "$RV_SET" -ne 0 ] && [ "$RV_SET" -ne 3 ]; then
   exit 2
 fi
 
+# v0.10.2 planner validation: same all-or-nothing rule.
+PL_SET=0
+[ -n "$PLANNER_TIER" ] && PL_SET=$((PL_SET+1))
+[ -n "$PLANNER_PROVIDER" ] && PL_SET=$((PL_SET+1))
+[ -n "$PLANNER_MODEL" ] && PL_SET=$((PL_SET+1))
+if [ "$PL_SET" -ne 0 ] && [ "$PL_SET" -ne 3 ]; then
+  echo "--planner-tier / --planner-provider / --planner-model must all be set together (or none)" >&2
+  exit 2
+fi
+
 CONFIG_PATH="$TARGET_DIR/opencode.json"
 
 # Build the provider-specific fragment as a JSON string. We keep this in a
@@ -94,18 +117,21 @@ CONFIG_PATH="$TARGET_DIR/opencode.json"
 # the merge logic stays canonical (sorted keys, 2-space indent, trailing \n).
 node - "$TIER" "$PROVIDER" "$MODEL" "$CONFIG_PATH" "$FORCE" "$PRINT_ONLY" \
      "$REVIEWER_TIER" "$REVIEWER_PROVIDER" "$REVIEWER_MODEL" \
-     "$SANDBOX_TEST_WRITER" "$SANDBOX_DOCS" <<'NODE'
+     "$SANDBOX_TEST_WRITER" "$SANDBOX_DOCS" \
+     "$PLANNER_TIER" "$PLANNER_PROVIDER" "$PLANNER_MODEL" <<'NODE'
 const fs = require("node:fs");
 const [
   tier, providerArg, model, configPath, forceStr, printOnlyStr,
   reviewerTier, reviewerProviderArg, reviewerModel,
   sandboxTestWriterStr, sandboxDocsStr,
+  plannerTier, plannerProviderArg, plannerModel,
 ] = process.argv.slice(2);
 const force = forceStr === "1";
 const printOnly = printOnlyStr === "1";
 const mixedMode = Boolean(reviewerTier && reviewerProviderArg && reviewerModel);
 const sandboxTestWriter = sandboxTestWriterStr === "1";
 const sandboxDocs = sandboxDocsStr === "1";
+const plannerMode = Boolean(plannerTier && plannerProviderArg && plannerModel);
 
 // Canonical provider IDs. Detector emits user-friendly aliases; we accept both
 // and emit the canonical OpenCode/models.dev ID in the written config so model
@@ -409,6 +435,19 @@ if (mixedMode) {
   // level rather than overwriting the whole object.
   merged.agent = deepMerge(existing.agent || {}, {
     review: { model: reviewerFragment.model },
+  });
+}
+
+// v0.10.2 Planner mode: identical shape to reviewer, agent.plan.model
+// instead of agent.review.model. Composes with reviewer (both blocks
+// land in agent), uses same PROVIDER_ALIASES + fragmentFor, merges
+// provider blocks into the same provider map.
+if (plannerMode) {
+  const plannerProvider = PROVIDER_ALIASES[plannerProviderArg] || plannerProviderArg;
+  const plannerFragment = fragmentFor(plannerTier, plannerProvider, plannerModel);
+  merged.provider = deepMerge(merged.provider, plannerFragment.provider || {});
+  merged.agent = deepMerge(merged.agent || existing.agent || {}, {
+    plan: { model: plannerFragment.model },
   });
 }
 

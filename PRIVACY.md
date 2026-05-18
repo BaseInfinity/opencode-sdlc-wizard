@@ -156,7 +156,7 @@ bash .opencode/scripts/configure-backend.sh \
 export GOOGLE_API_KEY="..."
 bash .opencode/scripts/configure-backend.sh \
      --tier proprietary --provider google_aistudio \
-     --model gemini-2.5-flash
+     --model gemini-3.1-pro
 ```
 
 ## What the wizard itself sends

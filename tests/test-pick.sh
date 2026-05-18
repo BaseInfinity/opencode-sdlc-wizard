@@ -399,6 +399,95 @@ if [ -x "$SCRIPT" ]; then
   fi
 fi
 
+# v0.10.2 --planner-* passthrough (symmetric to v0.10.0 reviewer pattern).
+# Same default-model lookup, same partial-spec validation, same passthrough
+# shape to configure-backend.
+
+# T23: --planner-tier + --planner-provider fills planner-model default
+if [ -x "$SCRIPT" ]; then
+  T="$TMP_ROOT/t23"; make_target "$T" "private_local/ollama"
+  DETECT_STUB_LOG="$T/detect.log"
+  CONFIGURE_STUB_LOG="$T/configure.log"
+  (DETECT_STUB_LOG="$DETECT_STUB_LOG" CONFIGURE_STUB_LOG="$CONFIGURE_STUB_LOG" \
+   PATH="$T/stubs:$PATH" "$SCRIPT" \
+     --planner-tier hosted_oss --planner-provider groq >/dev/null 2>&1) || true
+  if [ -f "$CONFIGURE_STUB_LOG" ] \
+     && grep -q -- "--planner-tier hosted_oss" "$CONFIGURE_STUB_LOG" \
+     && grep -q -- "--planner-provider groq" "$CONFIGURE_STUB_LOG" \
+     && grep -q -- "--planner-model llama-3.3-70b-versatile" "$CONFIGURE_STUB_LOG"; then
+    pass "Planner: --planner-provider groq → planner-model llama-3.3-70b-versatile default"
+  else
+    fail "Planner default not forwarded"
+    cat "$CONFIGURE_STUB_LOG" 2>/dev/null | head -3 >&2 || true
+  fi
+fi
+
+# T24: --planner-model override beats canonical default
+if [ -x "$SCRIPT" ]; then
+  T="$TMP_ROOT/t24"; make_target "$T" "private_local/ollama"
+  DETECT_STUB_LOG="$T/detect.log"
+  CONFIGURE_STUB_LOG="$T/configure.log"
+  (DETECT_STUB_LOG="$DETECT_STUB_LOG" CONFIGURE_STUB_LOG="$CONFIGURE_STUB_LOG" \
+   PATH="$T/stubs:$PATH" "$SCRIPT" \
+     --planner-tier proprietary --planner-provider anthropic \
+     --planner-model claude-haiku-4-5 >/dev/null 2>&1) || true
+  if [ -f "$CONFIGURE_STUB_LOG" ] && grep -q -- "--planner-model claude-haiku-4-5" "$CONFIGURE_STUB_LOG"; then
+    pass "Planner: --planner-model override forwards user's planner model"
+  else
+    fail "--planner-model override was ignored"
+  fi
+fi
+
+# T25: partial --planner-* errors with actionable message
+if [ -x "$SCRIPT" ]; then
+  T="$TMP_ROOT/t25"; make_target "$T" "private_local/ollama"
+  DETECT_STUB_LOG="$T/detect.log"
+  CONFIGURE_STUB_LOG="$T/configure.log"
+  rc=0
+  out="$(DETECT_STUB_LOG="$DETECT_STUB_LOG" CONFIGURE_STUB_LOG="$CONFIGURE_STUB_LOG" \
+       PATH="$T/stubs:$PATH" "$SCRIPT" --planner-tier hosted_oss 2>&1)" || rc=$?
+  if [ "$rc" -ne 0 ] && echo "$out" | grep -qi "planner"; then
+    pass "partial --planner-* spec rejected with planner-mention error"
+  else
+    fail "partial --planner-* spec did not error cleanly (rc=$rc)"
+  fi
+fi
+
+# T26: reviewer + planner + sandboxes all compose in one pick call
+if [ -x "$SCRIPT" ]; then
+  T="$TMP_ROOT/t26"; make_target "$T" "private_local/ollama"
+  DETECT_STUB_LOG="$T/detect.log"
+  CONFIGURE_STUB_LOG="$T/configure.log"
+  (DETECT_STUB_LOG="$DETECT_STUB_LOG" CONFIGURE_STUB_LOG="$CONFIGURE_STUB_LOG" \
+   PATH="$T/stubs:$PATH" "$SCRIPT" \
+     --reviewer-tier hosted_oss --reviewer-provider cerebras \
+     --planner-tier hosted_oss --planner-provider groq \
+     --sandbox-test-writer --sandbox-docs >/dev/null 2>&1) || true
+  if [ -f "$CONFIGURE_STUB_LOG" ] \
+     && grep -q -- "--reviewer-provider cerebras" "$CONFIGURE_STUB_LOG" \
+     && grep -q -- "--planner-provider groq" "$CONFIGURE_STUB_LOG" \
+     && grep -q -- "--sandbox-test-writer" "$CONFIGURE_STUB_LOG" \
+     && grep -q -- "--sandbox-docs" "$CONFIGURE_STUB_LOG"; then
+    pass "v0.10.2 full hybrid: --reviewer-* + --planner-* + --sandbox-* compose"
+  else
+    fail "full-hybrid compose missing args"
+  fi
+fi
+
+# T27: no --planner-* → no planner args forwarded (regression guard)
+if [ -x "$SCRIPT" ]; then
+  T="$TMP_ROOT/t27"; make_target "$T" "private_local/ollama"
+  DETECT_STUB_LOG="$T/detect.log"
+  CONFIGURE_STUB_LOG="$T/configure.log"
+  (DETECT_STUB_LOG="$DETECT_STUB_LOG" CONFIGURE_STUB_LOG="$CONFIGURE_STUB_LOG" \
+   PATH="$T/stubs:$PATH" "$SCRIPT" >/dev/null 2>&1) || true
+  if [ -f "$CONFIGURE_STUB_LOG" ] && ! grep -q -- "--planner-" "$CONFIGURE_STUB_LOG"; then
+    pass "pick without --planner-* flags does NOT forward planner args"
+  else
+    fail "pick leaked --planner-* args to configure"
+  fi
+fi
+
 echo ""
 echo "=== Results: $PASS passed, $FAIL failed ==="
 [ "$FAIL" -eq 0 ] || exit 1
