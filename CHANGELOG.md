@@ -2,6 +2,94 @@
 
 All notable changes to opencode-sdlc-wizard.
 
+## [0.10.2] - 2026-05-17
+
+### Added — Planner agent model routing (`--planner-*` flags)
+
+Fresh May-17-2026 community-patterns research found `plan` is the
+**most-overridden agent at 57% of surveyed configs** — beats `review`
+(52%) and `docs` (~40%). v0.10.2 mirrors the v0.10.0 reviewer pattern
+for the planner agent: `--planner-tier T --planner-provider P [--planner-model M]`
+on both `pick` and `configure-backend.sh`, with `--planner-model`
+optional (filled from canonical default-model map, same `default_model_for()`
+function used for coder + reviewer pins).
+
+```bash
+# Full v0.10.x hybrid — planner=fast, build=mid, reviewer=high,
+# plus the v0.10.1 sandbox blocks
+npx opencode-sdlc-wizard pick \
+  --tier proprietary --provider anthropic \
+  --planner-tier hosted_oss --planner-provider cerebras \
+  --reviewer-tier hosted_oss --reviewer-provider nvidia_nim \
+  --sandbox-test-writer --sandbox-docs
+```
+
+Yields `agent.plan.model: cerebras/gpt-oss-120b` + `agent.review.model:
+nvidia/deepseek-ai/deepseek-r1` + the sandbox `permission.write`
+blocks. OpenCode routes plan-mode tasks to Cerebras (fast), build to
+Opus (the global), review to NIM DeepSeek-R1 (reasoning), with the
+test-writer and docs agents path-scoped.
+
+### Changed — default model bumps (May-17 research, both verified live)
+
+| Provider | Was (v0.10.1) | Now (v0.10.2) | Verified |
+|---|---|---|---|
+| `proprietary/openai` | `gpt-5` | `gpt-5.3-codex` | OpenAI catalog, released 2026-02-05; most-pinned reviewer in fresh community configs |
+| `proprietary/google_aistudio` | `gemini-2.5-flash` | `gemini-3.1-pro` | Google catalog, released 2026-02-19; current frontier Gemini |
+| `proprietary/anthropic` | `claude-opus-4-7` | **unchanged** | Opus 4.7 still current frontier; Sonnet 4.8 not yet shipped |
+
+Doc surfaces updated to match: `PRIVACY.md` Google AI Studio walkthrough
+example now references `gemini-3.1-pro`.
+
+Other community-flagged swaps (DeepSeek → `deepseek-v4-flash`, Groq →
+`gpt-oss-120b`) deferred — both verified live but each one is its own
+default-value decision worth a focused patch.
+
+### Changed — `scripts/configure-backend.sh`
+
+- New `--planner-tier T --planner-provider P --planner-model M` flags
+  (all-or-nothing triplet; partial spec exits 2 with actionable msg)
+- Planner side shares `PROVIDER_ALIASES` map with coder + reviewer
+- Planner provider block deep-merges; same-provider planner+coder
+  collapses to single provider block
+- `agent.plan.model` deep-merges into any existing `agent` block alongside
+  `agent.review.model` (v0.10.0) and `agent.test-writer`/`agent.docs`
+  permission blocks (v0.10.1)
+
+### Changed — `scripts/pick-backend.sh`
+
+- New `--planner-tier T --planner-provider P [--planner-model M]` flags
+- Default-model resolution shares `default_model_for()` with the
+  coder + reviewer paths
+- Partial-spec validation extracted into a `validate_agent_triplet()`
+  helper so reviewer + planner share the same validation logic (DRY
+  for the next agent we add)
+
+### Tests
+
+- `tests/test-backend-picker.sh` adds T39–T43:
+  - T39: `--planner-*` writes `agent.plan.model` + planner provider block
+  - T40: planner + reviewer compose (both agent blocks, dual providers)
+  - T41: planner alias resolution (`google_aistudio → google`) parity with reviewer
+  - T42: partial `--planner-*` rejected without writing opencode.json
+  - T43: no planner flags → no `agent.plan` block (opt-in regression guard)
+- `tests/test-pick.sh` adds T23–T27 (passthrough + default resolution +
+  partial-spec error + full hybrid composition + regression guard)
+- **357 tests across 12 suites** (was 349 / 12 in v0.10.1)
+
+### Notes on the May-17 research
+
+- OpenCode shipped 11 patch releases in the past 10 days (1.14.42 →
+  1.15.4) including a v2 model/provider listing API and DigitalOcean
+  OAuth + Inference Router native adapter (`@ai-sdk/openai-compatible`
+  shim no longer needed if we ever support it).
+- v1.15.1 surfaces full config validation errors at TUI startup — bad
+  JSON the wizard emits now fails *loudly* instead of silently. UX win.
+- v1.14.46 ships a built-in `customize-opencode` skill — light overlap
+  with our trivial-edit layer; we differentiate via SDLC discipline
+  (hooks, scoring, plan→TDD→review enforcement).
+- Wizard at ~523 downloads/month, 410/week — early but real.
+
 ## [0.10.1] - 2026-05-17
 
 ### Added — Per-agent permission sandboxing (`--sandbox-test-writer` + `--sandbox-docs`)

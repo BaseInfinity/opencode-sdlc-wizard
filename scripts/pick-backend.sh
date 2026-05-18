@@ -53,6 +53,12 @@ FREE_TIER_FIRST=0
 REVIEWER_TIER=""
 REVIEWER_PROVIDER=""
 REVIEWER_MODEL=""
+# v0.10.2 Planner agent model routing. Symmetric to reviewer; writes
+# agent.plan.model + planner provider block. Typical use: plan=small/fast
+# (haiku, gpt-5-mini), build=mid (the global), review=high-reasoning.
+PLANNER_TIER=""
+PLANNER_PROVIDER=""
+PLANNER_MODEL=""
 # v0.10.1 Per-agent permission sandboxing. Passthrough to configure-backend's
 # matching flags — canonical permission.write block per agent (test/spec
 # files for test-writer, .md only for docs).
@@ -78,6 +84,12 @@ while [ $# -gt 0 ]; do
     --reviewer-provider=*) REVIEWER_PROVIDER="${1#*=}" ;;
     --reviewer-model) shift; REVIEWER_MODEL="${1:-}" ;;
     --reviewer-model=*) REVIEWER_MODEL="${1#*=}" ;;
+    --planner-tier) shift; PLANNER_TIER="${1:-}" ;;
+    --planner-tier=*) PLANNER_TIER="${1#*=}" ;;
+    --planner-provider) shift; PLANNER_PROVIDER="${1:-}" ;;
+    --planner-provider=*) PLANNER_PROVIDER="${1#*=}" ;;
+    --planner-model) shift; PLANNER_MODEL="${1:-}" ;;
+    --planner-model=*) PLANNER_MODEL="${1#*=}" ;;
     --sandbox-test-writer) SANDBOX_TEST_WRITER=1 ;;
     --sandbox-docs) SANDBOX_DOCS=1 ;;
     -h|--help) usage; exit 0 ;;
@@ -159,9 +171,9 @@ default_model_for() {
     hosted_oss/nvidia_nim|hosted_oss/nvidia|hosted_oss/nvidia-nim)
                                   echo "deepseek-ai/deepseek-r1" ;;
     proprietary/anthropic)        echo "claude-opus-4-7" ;;
-    proprietary/openai)           echo "gpt-5" ;;
+    proprietary/openai)           echo "gpt-5.3-codex" ;;
     proprietary/google_aistudio|proprietary/google|proprietary/gemini)
-                                  echo "gemini-2.5-flash" ;;
+                                  echo "gemini-3.1-pro" ;;
     *) return 1 ;;
   esac
 }
@@ -175,26 +187,27 @@ if [ -z "$MODEL" ]; then
   }
 fi
 
-# Mixed-Mode (v0.10.0): all-or-nothing on --reviewer-* triplet. Partial
-# spec is a bug — would silently produce a single-mode config. Fail loud.
-RV_SET=0
-[ -n "$REVIEWER_TIER" ] && RV_SET=$((RV_SET+1))
-[ -n "$REVIEWER_PROVIDER" ] && RV_SET=$((RV_SET+1))
-[ -n "$REVIEWER_MODEL" ] && RV_SET=$((RV_SET+1))
-# Allow --reviewer-tier + --reviewer-provider without --reviewer-model
-# (we'll fill it from the default-model map). Reject any other partial.
-if [ -n "$REVIEWER_MODEL" ] && { [ -z "$REVIEWER_TIER" ] || [ -z "$REVIEWER_PROVIDER" ]; }; then
-  echo "pick: --reviewer-model requires --reviewer-tier and --reviewer-provider together" >&2
-  exit 2
-fi
-if [ -n "$REVIEWER_TIER" ] && [ -z "$REVIEWER_PROVIDER" ]; then
-  echo "pick: --reviewer-tier requires --reviewer-provider together (all three reviewer flags must be set or none)" >&2
-  exit 2
-fi
-if [ -n "$REVIEWER_PROVIDER" ] && [ -z "$REVIEWER_TIER" ]; then
-  echo "pick: --reviewer-provider requires --reviewer-tier together (all three reviewer flags must be set or none)" >&2
-  exit 2
-fi
+# Partial-spec validation: each agent-flag triplet (reviewer, planner)
+# is all-or-nothing — partial would silently produce a config without
+# the intended routing. Allow tier+provider without model (filled from
+# default-model map); reject any other partial combination.
+validate_agent_triplet() {
+  local label="$1" tier_v="$2" prov_v="$3" model_v="$4"
+  if [ -n "$model_v" ] && { [ -z "$tier_v" ] || [ -z "$prov_v" ]; }; then
+    echo "pick: --${label}-model requires --${label}-tier and --${label}-provider together" >&2
+    exit 2
+  fi
+  if [ -n "$tier_v" ] && [ -z "$prov_v" ]; then
+    echo "pick: --${label}-tier requires --${label}-provider together (all three ${label} flags must be set or none)" >&2
+    exit 2
+  fi
+  if [ -n "$prov_v" ] && [ -z "$tier_v" ]; then
+    echo "pick: --${label}-provider requires --${label}-tier together (all three ${label} flags must be set or none)" >&2
+    exit 2
+  fi
+}
+validate_agent_triplet "reviewer" "$REVIEWER_TIER" "$REVIEWER_PROVIDER" "$REVIEWER_MODEL"
+validate_agent_triplet "planner"  "$PLANNER_TIER"  "$PLANNER_PROVIDER"  "$PLANNER_MODEL"
 
 # Resolve reviewer-model default if --reviewer-tier + --reviewer-provider
 # set but --reviewer-model not. Same default-model map as the coder pin.
@@ -202,6 +215,15 @@ if [ -n "$REVIEWER_TIER" ] && [ -n "$REVIEWER_PROVIDER" ] && [ -z "$REVIEWER_MOD
   REVIEWER_MODEL="$(default_model_for "$REVIEWER_TIER" "$REVIEWER_PROVIDER")" || {
     echo "pick: no default model known for reviewer $REVIEWER_TIER/$REVIEWER_PROVIDER." >&2
     echo "  Pass --reviewer-model <name> explicitly." >&2
+    exit 4
+  }
+fi
+
+# Same default-model fallback for the planner side.
+if [ -n "$PLANNER_TIER" ] && [ -n "$PLANNER_PROVIDER" ] && [ -z "$PLANNER_MODEL" ]; then
+  PLANNER_MODEL="$(default_model_for "$PLANNER_TIER" "$PLANNER_PROVIDER")" || {
+    echo "pick: no default model known for planner $PLANNER_TIER/$PLANNER_PROVIDER." >&2
+    echo "  Pass --planner-model <name> explicitly." >&2
     exit 4
   }
 fi
@@ -217,6 +239,13 @@ if [ -n "$REVIEWER_TIER" ]; then
     --reviewer-tier "$REVIEWER_TIER"
     --reviewer-provider "$REVIEWER_PROVIDER"
     --reviewer-model "$REVIEWER_MODEL"
+  )
+fi
+if [ -n "$PLANNER_TIER" ]; then
+  CONFIGURE_ARGS+=(
+    --planner-tier "$PLANNER_TIER"
+    --planner-provider "$PLANNER_PROVIDER"
+    --planner-model "$PLANNER_MODEL"
   )
 fi
 [ "$SANDBOX_TEST_WRITER" = "1" ] && CONFIGURE_ARGS+=(--sandbox-test-writer)
