@@ -189,6 +189,8 @@ default_model_for() {
     proprietary/openai)           echo "gpt-5.3-codex" ;;
     proprietary/google_aistudio|proprietary/google|proprietary/gemini)
                                   echo "gemini-3.1-pro" ;;
+    proprietary/zai|proprietary/z.ai|proprietary/z_ai|proprietary/glm)
+                                  echo "glm-4.6" ;;
     *) return 1 ;;
   esac
 }

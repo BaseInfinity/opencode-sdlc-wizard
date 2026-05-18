@@ -245,7 +245,8 @@ for combo in \
     "hosted_oss/nvidia_nim:deepseek" \
     "proprietary/anthropic:claude" \
     "proprietary/openai:gpt" \
-    "proprietary/google_aistudio:gemini"; do
+    "proprietary/google_aistudio:gemini" \
+    "proprietary/zai:glm"; do
   combo_pair="${combo%%:*}"
   expected_substr="${combo##*:}"
   T="$TMP_ROOT/t12-${combo_pair//\//-}"; make_target "$T" "private_local/ollama"

@@ -6,7 +6,7 @@
 #   private_local   ollama / lm_studio / llama_cpp / vllm / mlx
 #   enterprise      azure_openai / aws_bedrock
 #   hosted_oss      together / groq / openrouter / cerebras / deepseek / nvidia_nim
-#   proprietary     anthropic / openai / google_aistudio
+#   proprietary     anthropic / openai / google_aistudio / zai
 #
 # Usage:
 #   configure-backend.sh --tier <tier> --provider <provider> --model <model>
@@ -203,6 +203,11 @@ const PROVIDER_ALIASES = {
   google_aistudio: "google",
   google: "google",
   gemini: "google",
+  // v0.11.0: Z.AI GLM Coding Plan (proprietary, GLM closed weights).
+  zai: "zai",
+  "z.ai": "zai",
+  z_ai: "zai",
+  glm: "zai",
 };
 const provider = PROVIDER_ALIASES[providerArg] || providerArg;
 
@@ -408,6 +413,24 @@ function fragmentFor(tier, provider, model) {
         provider: {
           openai: {
             options: { apiKey: "{env:OPENAI_API_KEY}" },
+          },
+        },
+      };
+    case "proprietary/zai":
+      // Z.AI GLM Coding Plan. Closed weights, OpenAI-compatible API at
+      // https://api.z.ai/api/paas/v4/. May-2026 community signal: most-cited
+      // post-Anthropic-OAuth-ban migration target ($10/$30/$80 quarterly
+      // pricing for the Coding Plan; PAYG also available).
+      return {
+        model: `zai/${model}`,
+        provider: {
+          zai: {
+            npm: "@ai-sdk/openai-compatible",
+            options: {
+              apiKey: "{env:ZAI_API_KEY}",
+              baseURL: "https://api.z.ai/api/paas/v4",
+            },
+            models: { [model]: {} },
           },
         },
       };
