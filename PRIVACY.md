@@ -1,6 +1,6 @@
 # Privacy Tiers — Choosing a Backend
 
-OpenCode SDLC Wizard supports four backend tiers. Tiers are ordered by where
+OpenCode SDLC Wizard supports six backend tiers. Tiers are ordered by where
 your prompts and code can travel. The wizard's recommendation defaults to the
 strongest privacy guarantee available, not the strongest model ceiling.
 
@@ -9,7 +9,9 @@ strongest privacy guarantee available, not the strongest model ceiling.
 | **`private_local`** | Stays on your machine. No outbound traffic. | Privileged data, attorney-client work, air-gapped environments, source you cannot send to a third party |
 | **`enterprise`** | Stays in your tenant. Vendor processes under contract; zero-retention configurable. | Regulated companies with an Azure/Bedrock/internal-gateway agreement that meets compliance |
 | **`hosted_oss`** | Sent to a third-party host of open-weight models. Logging policy is the host's. | Cost-sensitive work where the model weights are open but you'd rather pay-per-token than self-host |
-| **`proprietary`** | Sent to Anthropic / OpenAI. Vendor's standard ToS applies. | Maximum capability ceiling when privacy isn't the binding constraint |
+| **`managed`** | Sent to OpenCode's hosted routing service (OpenCode Zen). PAYG, vendor-managed model selection. Free tier available. | Lowest-friction "just give me a working setup" option; new-user entry per official OpenCode docs |
+| **`proprietary`** | Sent to Anthropic / OpenAI / Google / Z.AI. Vendor's standard ToS applies. | Maximum capability ceiling when privacy isn't the binding constraint |
+| **`subscription`** | Sent via vendor-managed OAuth (GitHub Copilot Pro+). Auth lives in OpenCode's user state, not `opencode.json`. | Flat-fee bridge to Opus 4.7 + GPT-5.3-Codex post-Anthropic-OAuth-ban; $39/mo all-you-can-eat |
 
 ## How to pick
 
@@ -138,6 +140,35 @@ bash .opencode/scripts/configure-backend.sh \
 The host's logging policy applies. If that's not acceptable for your data,
 move to `private_local` or `enterprise`.
 
+## `managed` — OpenCode-routed PAYG (Zen)
+
+OpenCode's own hosted routing service. PAYG with auto-reload, 40+ models
+including a free tier (Big Pickle, DeepSeek V4 Flash Free, MiniMax M2.5
+Free, Nemotron 3 Super Free). Lowest-friction "just give me something
+that works" option per OpenCode's own docs — the recommended new-user
+entry point.
+
+| Provider | Default model | Notes |
+|----------|---------------|-------|
+| OpenCode Zen (`opencode` / `zen` / `opencode_zen`) | `gpt-5.5` | 40+ models, $5 auto-reload trigger, free-tier models available |
+
+```bash
+export OPENCODE_ZEN_API_KEY="..."   # get a key at opencode.ai/zen
+bash .opencode/scripts/configure-backend.sh \
+     --tier managed --provider opencode \
+     --model "gpt-5.5"
+
+# Or use a free-tier model for $0 work:
+bash .opencode/scripts/configure-backend.sh \
+     --tier managed --provider opencode \
+     --model "deepseek-v4-flash-free"
+```
+
+**Privacy positioning.** Sits between `hosted_oss` and `proprietary`:
+prompts go through OpenCode's infra (you don't control the upstream
+routing decisions), but you're not directly bound to a specific vendor
+contract. Less private than DIY hosted, less locked-in than vendor.
+
 ## `proprietary` — max capability, vendor-bound
 
 Anthropic Claude, OpenAI GPT, or Google AI Studio (Gemini). Use when
@@ -158,6 +189,47 @@ bash .opencode/scripts/configure-backend.sh \
      --tier proprietary --provider google_aistudio \
      --model gemini-3.1-pro
 ```
+
+Plus Z.AI GLM Coding Plan (post-Anthropic-OAuth-ban migration target):
+
+```bash
+export ZAI_API_KEY="..."
+bash .opencode/scripts/configure-backend.sh \
+     --tier proprietary --provider zai \
+     --model glm-4.6
+```
+
+## `subscription` — OAuth-managed sub bridge (Copilot Pro+)
+
+The only subscription path that bridges Claude Opus 4.7 + GPT-5.3-Codex
+into OpenCode as of May 2026. Anthropic killed third-party OAuth in
+Jan/Feb 2026 (OpenCode removed the OAuth code March 2026); GitHub
+Copilot Pro+ ($39/mo) is now the lone whitelisted bridge.
+
+Critical shape difference from every other tier: **auth is OAuth, not
+an API key**. No env var goes into `opencode.json`; the wizard scaffolds
+the model pin and OpenCode's native `github-copilot` adapter handles the
+device-flow OAuth on first use.
+
+| Provider | Default model | Notes |
+|----------|---------------|-------|
+| GitHub Copilot (`github-copilot` / `copilot` / `gh-copilot`) | `claude-opus-4-7` | $39/mo for Pro+ unlocks Opus + GPT-5.3-Codex; auth via `/connect` in OpenCode |
+
+```bash
+# Scaffold the pin (no env var needed — wizard writes the model field):
+bash .opencode/scripts/configure-backend.sh \
+     --tier subscription --provider copilot \
+     --model claude-opus-4-7
+
+# Complete OAuth (one-time per machine):
+opencode    # → /connect → search "GitHub Copilot" → enter the code
+            #   at github.com/login/device
+```
+
+**Privacy positioning.** Prompts go to GitHub/Microsoft/OpenAI/Anthropic
+via Copilot's routing under the Pro+ contract. Their terms apply; Copilot
+specifically does not train on Pro+ prompts per their docs (verify at the
+plan page — pricing and ToS change frequently).
 
 ## What the wizard itself sends
 
