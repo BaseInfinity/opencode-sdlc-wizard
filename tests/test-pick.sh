@@ -605,6 +605,38 @@ if [ -x "$SCRIPT" ]; then
   fi
 fi
 
+# T35-T37: v0.11.1 per-agent temperature flags pass through unchanged.
+for spec in "coder:0.3" "planner:0.1" "reviewer:0.1"; do
+  flag="${spec%%:*}"
+  val="${spec##*:}"
+  if [ -x "$SCRIPT" ]; then
+    T="$TMP_ROOT/t35-$flag"; make_target "$T" "private_local/ollama"
+    DETECT_STUB_LOG="$T/detect.log"
+    CONFIGURE_STUB_LOG="$T/configure.log"
+    (DETECT_STUB_LOG="$DETECT_STUB_LOG" CONFIGURE_STUB_LOG="$CONFIGURE_STUB_LOG" \
+     PATH="$T/stubs:$PATH" "$SCRIPT" --${flag}-temp "$val" >/dev/null 2>&1) || true
+    if [ -f "$CONFIGURE_STUB_LOG" ] && grep -q -- "--${flag}-temp $val" "$CONFIGURE_STUB_LOG"; then
+      pass "--${flag}-temp $val passes through to configure-backend"
+    else
+      fail "--${flag}-temp dropped"
+    fi
+  fi
+done
+
+# T38: no temp flags → no temp args forwarded (regression guard)
+if [ -x "$SCRIPT" ]; then
+  T="$TMP_ROOT/t38"; make_target "$T" "private_local/ollama"
+  DETECT_STUB_LOG="$T/detect.log"
+  CONFIGURE_STUB_LOG="$T/configure.log"
+  (DETECT_STUB_LOG="$DETECT_STUB_LOG" CONFIGURE_STUB_LOG="$CONFIGURE_STUB_LOG" \
+   PATH="$T/stubs:$PATH" "$SCRIPT" >/dev/null 2>&1) || true
+  if [ -f "$CONFIGURE_STUB_LOG" ] && ! grep -q -- "-temp" "$CONFIGURE_STUB_LOG"; then
+    pass "pick without --*-temp flags does NOT forward temp args"
+  else
+    fail "pick leaked --*-temp args"
+  fi
+fi
+
 echo ""
 echo "=== Results: $PASS passed, $FAIL failed ==="
 [ "$FAIL" -eq 0 ] || exit 1
