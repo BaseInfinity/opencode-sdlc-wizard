@@ -72,6 +72,10 @@ SANDBOX_TEST_WRITER=0
 SANDBOX_DOCS=0
 # v0.10.5 plan-mode tool denial (agent.plan.tools.{write,edit,patch}=false).
 SANDBOX_PLAN=0
+# v0.11.1 per-agent temperatures.
+CODER_TEMP=""
+PLANNER_TEMP=""
+REVIEWER_TEMP=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -107,6 +111,12 @@ while [ $# -gt 0 ]; do
     --sandbox-test-writer) SANDBOX_TEST_WRITER=1 ;;
     --sandbox-docs) SANDBOX_DOCS=1 ;;
     --sandbox-plan) SANDBOX_PLAN=1 ;;
+    --coder-temp) shift; CODER_TEMP="${1:-}" ;;
+    --coder-temp=*) CODER_TEMP="${1#*=}" ;;
+    --planner-temp) shift; PLANNER_TEMP="${1:-}" ;;
+    --planner-temp=*) PLANNER_TEMP="${1#*=}" ;;
+    --reviewer-temp) shift; REVIEWER_TEMP="${1:-}" ;;
+    --reviewer-temp=*) REVIEWER_TEMP="${1#*=}" ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown arg: $1" >&2; usage >&2; exit 2 ;;
   esac
@@ -285,6 +295,9 @@ fi
 [ "$SANDBOX_TEST_WRITER" = "1" ] && CONFIGURE_ARGS+=(--sandbox-test-writer)
 [ "$SANDBOX_DOCS" = "1" ]        && CONFIGURE_ARGS+=(--sandbox-docs)
 [ "$SANDBOX_PLAN" = "1" ]        && CONFIGURE_ARGS+=(--sandbox-plan)
+[ -n "$CODER_TEMP" ]             && CONFIGURE_ARGS+=(--coder-temp "$CODER_TEMP")
+[ -n "$PLANNER_TEMP" ]           && CONFIGURE_ARGS+=(--planner-temp "$PLANNER_TEMP")
+[ -n "$REVIEWER_TEMP" ]          && CONFIGURE_ARGS+=(--reviewer-temp "$REVIEWER_TEMP")
 
 if [ -n "$REVIEWER_TIER" ]; then
   echo "pick: resolved coder $TIER/$PROVIDER → $MODEL + reviewer $REVIEWER_TIER/$REVIEWER_PROVIDER → $REVIEWER_MODEL" >&2

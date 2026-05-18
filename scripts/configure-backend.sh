@@ -59,6 +59,13 @@ SANDBOX_DOCS=0
 # modify code. Distinct from v0.10.1 permission.write blocks — those
 # are path-scoped allow/deny on writes; this is categorical tool disable.
 SANDBOX_PLAN=0
+# v0.11.1 per-agent temperatures. Community pattern (joelhooks + ppries):
+# plan=0.1 (deterministic), build=0.3 (some creativity), review=0.1
+# (deterministic). Empty string means "not set" → no temperature field
+# emitted on that agent block.
+CODER_TEMP=""
+PLANNER_TEMP=""
+REVIEWER_TEMP=""
 
 usage() {
   sed -n '2,15p' "$0"
@@ -97,6 +104,12 @@ while [ $# -gt 0 ]; do
     --sandbox-test-writer) SANDBOX_TEST_WRITER=1 ;;
     --sandbox-docs) SANDBOX_DOCS=1 ;;
     --sandbox-plan) SANDBOX_PLAN=1 ;;
+    --coder-temp) shift; CODER_TEMP="${1:-}" ;;
+    --coder-temp=*) CODER_TEMP="${1#*=}" ;;
+    --planner-temp) shift; PLANNER_TEMP="${1:-}" ;;
+    --planner-temp=*) PLANNER_TEMP="${1#*=}" ;;
+    --reviewer-temp) shift; REVIEWER_TEMP="${1:-}" ;;
+    --reviewer-temp=*) REVIEWER_TEMP="${1#*=}" ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown arg: $1" >&2; usage >&2; exit 2 ;;
   esac
@@ -149,7 +162,8 @@ node - "$TIER" "$PROVIDER" "$MODEL" "$CONFIG_PATH" "$FORCE" "$PRINT_ONLY" \
      "$SANDBOX_TEST_WRITER" "$SANDBOX_DOCS" \
      "$PLANNER_TIER" "$PLANNER_PROVIDER" "$PLANNER_MODEL" \
      "$SMALL_TIER" "$SMALL_PROVIDER" "$SMALL_MODEL" \
-     "$SANDBOX_PLAN" <<'NODE'
+     "$SANDBOX_PLAN" \
+     "$CODER_TEMP" "$PLANNER_TEMP" "$REVIEWER_TEMP" <<'NODE'
 const fs = require("node:fs");
 const [
   tier, providerArg, model, configPath, forceStr, printOnlyStr,
@@ -158,6 +172,7 @@ const [
   plannerTier, plannerProviderArg, plannerModel,
   smallTier, smallProviderArg, smallModel,
   sandboxPlanStr,
+  coderTempStr, plannerTempStr, reviewerTempStr,
 ] = process.argv.slice(2);
 const force = forceStr === "1";
 const printOnly = printOnlyStr === "1";
@@ -167,6 +182,12 @@ const sandboxDocs = sandboxDocsStr === "1";
 const plannerMode = Boolean(plannerTier && plannerProviderArg && plannerModel);
 const smallMode = Boolean(smallTier && smallProviderArg && smallModel);
 const sandboxPlan = sandboxPlanStr === "1";
+// Parse temperatures only if non-empty; empty string means "not set"
+// (no temperature field emitted). Numbers preserve as numbers in JSON.
+function parseTemp(s) { return s === "" ? null : Number(s); }
+const coderTemp = parseTemp(coderTempStr);
+const plannerTemp = parseTemp(plannerTempStr);
+const reviewerTemp = parseTemp(reviewerTempStr);
 
 // Canonical provider IDs. Detector emits user-friendly aliases; we accept both
 // and emit the canonical OpenCode/models.dev ID in the written config so model
@@ -557,6 +578,18 @@ if (sandboxTestWriter || sandboxDocs || sandboxPlan) {
     };
   }
   merged.agent = deepMerge(merged.agent || existing.agent || {}, sandboxAdditions);
+}
+
+// v0.11.1 per-agent temperatures. Each non-null value sets the
+// agent.<name>.temperature field; deep-merges with any existing model /
+// tools / permission siblings on that agent. --coder-temp targets the
+// `build` agent (OpenCode's default agent name for code generation).
+if (coderTemp !== null || plannerTemp !== null || reviewerTemp !== null) {
+  const tempAdditions = {};
+  if (coderTemp !== null) tempAdditions["build"] = { temperature: coderTemp };
+  if (plannerTemp !== null) tempAdditions["plan"] = { temperature: plannerTemp };
+  if (reviewerTemp !== null) tempAdditions["review"] = { temperature: reviewerTemp };
+  merged.agent = deepMerge(merged.agent || existing.agent || {}, tempAdditions);
 }
 
 // Canonical key ordering for deterministic output (idempotency requirement).

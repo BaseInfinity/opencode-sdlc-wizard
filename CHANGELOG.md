@@ -2,6 +2,79 @@
 
 All notable changes to opencode-sdlc-wizard.
 
+## [0.11.1] - 2026-05-18
+
+### Added — Per-agent temperatures (`--coder-temp`, `--planner-temp`, `--reviewer-temp`)
+
+May-2026 community pattern (joelhooks, ppries, others): explicit
+temperature settings per agent. Typical split: `plan=0.1`
+(deterministic, focus on the right answer), `build=0.3` (some
+creativity for code), `review=0.1` (deterministic).
+
+```bash
+npx opencode-sdlc-wizard pick \
+  --tier proprietary --provider anthropic \
+  --planner-tier hosted_oss --planner-provider groq --planner-temp 0.1 \
+  --reviewer-tier hosted_oss --reviewer-provider cerebras --reviewer-temp 0.1 \
+  --coder-temp 0.3
+```
+
+Yields:
+
+```json
+{
+  "model": "anthropic/claude-opus-4-7",
+  "agent": {
+    "build": { "temperature": 0.3 },
+    "plan":  { "model": "groq/gpt-oss-120b",      "temperature": 0.1 },
+    "review":{ "model": "cerebras/gpt-oss-120b",  "temperature": 0.1 }
+  }
+}
+```
+
+### Naming notes
+
+- `--coder-temp` targets `agent.build.temperature` — OpenCode's default
+  agent name for code generation is `build`, not `coder`. We expose
+  `--coder-temp` for ergonomics (matches `--coder-*` mental model from
+  v0.10.x) while writing the canonical JSON key.
+- `--planner-temp` targets `agent.plan.temperature` (mirrors
+  `--planner-tier`/`--planner-provider` from v0.10.2).
+- `--reviewer-temp` targets `agent.review.temperature` (mirrors
+  `--reviewer-tier`/`--reviewer-provider` from v0.10.0).
+
+### Changed — `scripts/configure-backend.sh`
+
+- New `--coder-temp T`, `--planner-temp T`, `--reviewer-temp T` flags
+- Values parsed as JSON numbers (so `0.3` becomes `0.3` not `"0.3"`)
+- Empty string = "not set" — no temperature field emitted for that agent
+- Deep-merges with v0.10.0 `agent.review.model`, v0.10.2
+  `agent.plan.model`, v0.10.5 `agent.plan.tools`, v0.10.1
+  `agent.<name>.permission.write` blocks
+
+### Changed — `scripts/pick-backend.sh`
+
+- Same three flags forwarded to `configure-backend.sh` unchanged
+- No default-model fallback (temperatures aren't tied to providers)
+
+### Tests
+
+- `tests/test-backend-picker.sh` adds T56–T60:
+  - T56: `--coder-temp 0.3` writes `agent.build.temperature = 0.3` as a number
+  - T57: `--reviewer-temp` composes with `--reviewer-*` (model + temperature on agent.review)
+  - T58: `--planner-temp` + `--planner-*` + `--sandbox-plan` triple-compose (model + temperature + tools on agent.plan)
+  - T59: all three temp flags emit correct values
+  - T60: no flags → no temperature fields (opt-in regression guard)
+- `tests/test-pick.sh` adds T35–T38 (passthrough + regression guard)
+- **388 tests across 12 suites** (was 379 / 12 in v0.11.0)
+
+### Compat
+
+- Opt-in only. Existing configs unchanged unless `--*-temp` flags passed.
+- Composes with every v0.10.x and v0.11.0 flag. Full v0.11.1 stack in
+  one call: model + small_model + 3 per-agent models + 3 sandboxes +
+  3 per-agent temperatures.
+
 ## [0.11.0] - 2026-05-18
 
 ### Added — Z.AI GLM Coding Plan as a first-class proprietary provider

@@ -1203,6 +1203,128 @@ let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{
   fi
 fi
 
+# --- v0.11.1: per-agent temperatures. May-2026 community pattern (joelhooks
+# + ppries gists, others): plan=0.1 (deterministic), build=0.3 (some
+# creativity), review=0.1 (deterministic). Flags --planner-temp / --reviewer-
+# temp / --coder-temp set agent.<name>.temperature; deep-merges with v0.10.0
+# agent.review.model + v0.10.2 agent.plan.model + v0.10.5 agent.plan.tools.
+
+# --- T56: --coder-temp writes agent.build.temperature ("build" is OpenCode's
+#         default agent name for code generation work)
+if [ -x "$CONFIG" ]; then
+  T="$TMP_ROOT/t56"; mkdir -p "$T"
+  (cd "$T" && "$CONFIG" \
+     --tier private_local --provider ollama --model qwen3-coder:30b \
+     --coder-temp 0.3 >/dev/null 2>&1) || true
+  if [ -f "$T/opencode.json" ]; then
+    ok="$(node -e "
+const j=require('$T/opencode.json');
+if(!j.agent||!j.agent.build||j.agent.build.temperature!==0.3){console.log('build-temp-wrong:'+JSON.stringify(j.agent&&j.agent.build));process.exit(1)}
+console.log('ok');
+" 2>/dev/null || echo 'failed')"
+    if [ "$ok" = "ok" ]; then
+      pass "--coder-temp 0.3 writes agent.build.temperature = 0.3"
+    else
+      fail "T56 — $ok"
+    fi
+  fi
+fi
+
+# --- T57: --reviewer-temp + --reviewer-* compose (model AND temperature both
+#         present on agent.review)
+if [ -x "$CONFIG" ]; then
+  T="$TMP_ROOT/t57"; mkdir -p "$T"
+  (cd "$T" && "$CONFIG" \
+     --tier proprietary --provider anthropic --model claude-opus-4-7 \
+     --reviewer-tier hosted_oss --reviewer-provider cerebras --reviewer-model gpt-oss-120b \
+     --reviewer-temp 0.1 >/dev/null 2>&1) || true
+  if [ -f "$T/opencode.json" ]; then
+    ok="$(node -e "
+const j=require('$T/opencode.json');
+if(j.agent.review.model!=='cerebras/gpt-oss-120b'){console.log('rev-model-wrong');process.exit(1)}
+if(j.agent.review.temperature!==0.1){console.log('rev-temp-wrong:'+j.agent.review.temperature);process.exit(1)}
+console.log('ok');
+" 2>/dev/null || echo 'failed')"
+    if [ "$ok" = "ok" ]; then
+      pass "--reviewer-temp composes with --reviewer-* (agent.review has model + temperature)"
+    else
+      fail "T57 — $ok"
+    fi
+  fi
+fi
+
+# --- T58: --planner-temp + --planner-* + --sandbox-plan compose
+#         (agent.plan ends up with .model AND .temperature AND .tools)
+if [ -x "$CONFIG" ]; then
+  T="$TMP_ROOT/t58"; mkdir -p "$T"
+  (cd "$T" && "$CONFIG" \
+     --tier proprietary --provider anthropic --model claude-opus-4-7 \
+     --planner-tier hosted_oss --planner-provider groq --planner-model gpt-oss-120b \
+     --planner-temp 0.1 \
+     --sandbox-plan >/dev/null 2>&1) || true
+  if [ -f "$T/opencode.json" ]; then
+    ok="$(node -e "
+const j=require('$T/opencode.json');
+if(j.agent.plan.model!=='groq/gpt-oss-120b'){console.log('plan-model-wrong');process.exit(1)}
+if(j.agent.plan.temperature!==0.1){console.log('plan-temp-wrong');process.exit(1)}
+if(j.agent.plan.tools.write!==false){console.log('plan-tools-wrong');process.exit(1)}
+console.log('ok');
+" 2>/dev/null || echo 'failed')"
+    if [ "$ok" = "ok" ]; then
+      pass "Full plan agent: --planner-* + --planner-temp + --sandbox-plan all compose"
+    else
+      fail "T58 — $ok"
+    fi
+  fi
+fi
+
+# --- T59: all three temp flags + all per-agent flags + sandboxes compose
+if [ -x "$CONFIG" ]; then
+  T="$TMP_ROOT/t59"; mkdir -p "$T"
+  (cd "$T" && "$CONFIG" \
+     --tier proprietary --provider anthropic --model claude-opus-4-7 \
+     --coder-temp 0.3 \
+     --reviewer-tier hosted_oss --reviewer-provider cerebras --reviewer-model gpt-oss-120b \
+     --reviewer-temp 0.1 \
+     --planner-tier hosted_oss --planner-provider groq --planner-model gpt-oss-120b \
+     --planner-temp 0.1 >/dev/null 2>&1) || true
+  if [ -f "$T/opencode.json" ]; then
+    ok="$(node -e "
+const j=require('$T/opencode.json');
+if(j.agent.build.temperature!==0.3){console.log('build-temp');process.exit(1)}
+if(j.agent.review.temperature!==0.1){console.log('rev-temp');process.exit(1)}
+if(j.agent.plan.temperature!==0.1){console.log('plan-temp');process.exit(1)}
+console.log('ok');
+" 2>/dev/null || echo 'failed')"
+    if [ "$ok" = "ok" ]; then
+      pass "all three --*-temp flags emit correct agent.<name>.temperature values"
+    else
+      fail "T59 — $ok"
+    fi
+  fi
+fi
+
+# --- T60: no temp flags → no temperature fields written (opt-in regression)
+if [ -x "$CONFIG" ]; then
+  T="$TMP_ROOT/t60"; mkdir -p "$T"
+  (cd "$T" && "$CONFIG" --tier private_local --provider ollama --model qwen3-coder:30b >/dev/null 2>&1) || true
+  if [ -f "$T/opencode.json" ]; then
+    ok="$(node -e "
+const j=require('$T/opencode.json');
+const agent=j.agent||{};
+for(const k of ['build','plan','review']){
+  if(agent[k]&&'temperature' in agent[k]){console.log('unexpected-temp:'+k);process.exit(1)}
+}
+console.log('ok');
+" 2>/dev/null || echo 'failed')"
+    if [ "$ok" = "ok" ]; then
+      pass "no --*-temp flags → no temperature fields (opt-in regression guard)"
+    else
+      fail "T60 — $ok"
+    fi
+  fi
+fi
+
 echo ""
 echo "=== Results: $PASS passed, $FAIL failed ==="
 [ "$FAIL" -eq 0 ] || exit 1
