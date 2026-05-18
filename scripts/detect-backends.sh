@@ -8,6 +8,7 @@
 #   "hosted_oss":     { together, groq, openrouter, cerebras, deepseek, nvidia_nim },
 #   "proprietary":    { anthropic, openai, google_aistudio, zai },
 #   "managed":        { opencode (OpenCode Zen) },
+#   "subscription":   { github-copilot — OAuth-managed, no auto-detect },
 #   "recommendation": "<tier>/<provider>"
 # }
 #
@@ -224,6 +225,9 @@ cat <<EOF
   },
   "managed": {
     "opencode": { "key_set": $M_OPENCODE_ZEN_SET, "env": "OPENCODE_ZEN_API_KEY" }
+  },
+  "subscription": {
+    "github-copilot": { "key_set": false, "env": null, "auth": "oauth", "setup": "opencode /connect → github.com/login/device" }
   },
   "recommendation": "$RECOMMENDATION"
 }

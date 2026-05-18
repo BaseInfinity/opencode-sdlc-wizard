@@ -1530,6 +1530,81 @@ console.log('ok');
   fi
 fi
 
+# --- v0.13.0: GitHub Copilot Pro+ as subscription tier. OAuth-managed
+# native adapter (no env var to detect, no API key in opencode.json).
+# Per May-2026 research, Pro+ ($39/mo) is the only sub path that bridges
+# Opus 4.7 + GPT-5.3-Codex into OpenCode (Anthropic killed direct
+# OAuth Jan/Feb 2026). Wizard ships the model pin + alias set; auth is
+# completed via `opencode /connect` interactive flow.
+
+# --- T70: configure-backend writes Copilot pin with empty provider block
+if [ -x "$CONFIG" ]; then
+  T="$TMP_ROOT/t70"; mkdir -p "$T"
+  (cd "$T" && "$CONFIG" --tier subscription --provider copilot --model "claude-opus-4-7" >/dev/null 2>&1) || true
+  if [ -f "$T/opencode.json" ]; then
+    ok="$(node -e "
+const j=require('$T/opencode.json');
+if(j.model!=='github-copilot/claude-opus-4-7'){console.log('model-wrong:'+j.model);process.exit(1)}
+// Provider block should be empty/absent — OpenCode native adapter
+// handles OAuth, no apiKey/baseURL needed in the user's opencode.json.
+const block=j.provider && j.provider['github-copilot'];
+if(block && (block.options && (block.options.apiKey || block.options.baseURL))){
+  console.log('unexpected-config-on-native-provider');process.exit(1);
+}
+console.log('ok');
+" 2>/dev/null || echo 'failed')"
+    if [ "$ok" = "ok" ]; then
+      pass "configure-backend writes Copilot pin with no apiKey/baseURL (OAuth-managed)"
+    else
+      fail "T70 — $ok"
+    fi
+  fi
+fi
+
+# --- T71: Copilot aliases (copilot, github_copilot, gh-copilot, gh_copilot)
+#         all resolve to canonical 'github-copilot'
+for alias_id in copilot github_copilot gh-copilot gh_copilot; do
+  if [ -x "$CONFIG" ]; then
+    T="$TMP_ROOT/t71-${alias_id}"; mkdir -p "$T"
+    (cd "$T" && "$CONFIG" --tier subscription --provider "$alias_id" --model "gpt-5.3-codex" >/dev/null 2>&1) || true
+    if [ -f "$T/opencode.json" ]; then
+      ok="$(node -e "
+const j=require('$T/opencode.json');
+if(j.model!=='github-copilot/gpt-5.3-codex'){console.log('alias-pin-wrong:'+j.model);process.exit(1)}
+console.log('ok');
+" 2>/dev/null || echo 'failed')"
+      if [ "$ok" = "ok" ]; then
+        pass "Copilot alias '$alias_id' resolves to canonical 'github-copilot'"
+      else
+        fail "T71-$alias_id — $ok"
+      fi
+    fi
+  fi
+done
+
+# --- T72: detect-backends emits the subscription tier in JSON output
+#         (even though no env var triggers it, the schema includes it
+#         for shape consistency and documents the OAuth setup path)
+if [ -x "$DETECT" ]; then
+  FAKE_HOME="$TMP_ROOT/t72-home"; mkdir -p "$FAKE_HOME"
+  ok="$(env -i HOME="$FAKE_HOME" PATH="/usr/bin:/bin" "$DETECT" 2>/dev/null | node -e "
+let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{
+  try{const j=JSON.parse(d);
+    if(!j.subscription||!j.subscription['github-copilot']){console.log('missing-subscription-block');process.exit(1)}
+    const c=j.subscription['github-copilot'];
+    if(c.auth!=='oauth'){console.log('wrong-auth-mode');process.exit(1)}
+    if(c.key_set!==false){console.log('wrong-key_set');process.exit(1)}
+    if(!c.setup||!c.setup.includes('connect')){console.log('missing-setup-instructions');process.exit(1)}
+    console.log('ok');
+  }catch(e){console.log('parse-fail:'+e.message)}
+})" 2>/dev/null || echo 'failed')"
+  if [ "$ok" = "ok" ]; then
+    pass "detect-backends JSON includes subscription.github-copilot block with OAuth setup hint"
+  else
+    fail "T72 — $ok"
+  fi
+fi
+
 echo ""
 echo "=== Results: $PASS passed, $FAIL failed ==="
 [ "$FAIL" -eq 0 ] || exit 1

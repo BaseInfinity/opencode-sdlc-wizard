@@ -218,6 +218,8 @@ default_model_for() {
                                   echo "glm-4.6" ;;
     managed/opencode|managed/opencode_zen|managed/opencode-zen|managed/zen)
                                   echo "gpt-5.5" ;;
+    subscription/github-copilot|subscription/copilot|subscription/github_copilot|subscription/gh-copilot|subscription/gh_copilot)
+                                  echo "claude-opus-4-7" ;;
     *) return 1 ;;
   esac
 }

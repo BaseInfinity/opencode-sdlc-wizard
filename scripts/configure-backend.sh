@@ -8,6 +8,7 @@
 #   hosted_oss      together / groq / openrouter / cerebras / deepseek / nvidia_nim
 #   proprietary     anthropic / openai / google_aistudio / zai
 #   managed         opencode (OpenCode Zen — vendor-routed PAYG over 40+ models)
+#   subscription    github-copilot (Copilot Pro+ — bridges to Opus 4.7 / GPT-5.3-Codex via OAuth)
 #
 # Usage:
 #   configure-backend.sh --tier <tier> --provider <provider> --model <model>
@@ -271,6 +272,14 @@ const PROVIDER_ALIASES = {
   opencode_zen: "opencode",
   "opencode-zen": "opencode",
   zen: "opencode",
+  // v0.13.0: GitHub Copilot Pro+ — subscription tier. OpenCode's
+  // canonical provider id is "github-copilot" (the OAuth-managed
+  // native adapter; no API key in opencode.json).
+  copilot: "github-copilot",
+  github_copilot: "github-copilot",
+  "github-copilot": "github-copilot",
+  gh_copilot: "github-copilot",
+  "gh-copilot": "github-copilot",
 };
 const provider = PROVIDER_ALIASES[providerArg] || providerArg;
 
@@ -516,6 +525,18 @@ function fragmentFor(tier, provider, model) {
             models: { [model]: {} },
           },
         },
+      };
+    case "subscription/github-copilot":
+      // GitHub Copilot Pro+ — OAuth-managed native adapter in OpenCode.
+      // The Pro+ sub ($39/mo as of May 2026) bridges to Opus 4.7 +
+      // GPT-5.3-Codex inside OpenCode (the only sub path that does
+      // post-Anthropic-OAuth-ban). Auth flows via /connect interactive
+      // OAuth, NOT via opencode.json — so the provider block here is
+      // empty (model pin only). User runs `opencode` → /connect →
+      // github.com/login/device to complete first-time auth.
+      return {
+        model: `github-copilot/${model}`,
+        provider: {},
       };
     default:
       throw new Error(`unsupported tier/provider: ${t}`);
