@@ -33,6 +33,13 @@ PRINT_ONLY=0
 REVIEWER_TIER=""
 REVIEWER_PROVIDER=""
 REVIEWER_MODEL=""
+# v0.10.1 Per-agent permission sandboxing. Boolean flags inject canonical
+# permission.write blocks for the two highest-signal agents from May-2026
+# community-patterns research (9/15 configs use this): test-writer scoped
+# to test/spec files only, docs scoped to .md only. Users wanting custom
+# glob patterns edit opencode.json directly.
+SANDBOX_TEST_WRITER=0
+SANDBOX_DOCS=0
 
 usage() {
   sed -n '2,15p' "$0"
@@ -56,6 +63,8 @@ while [ $# -gt 0 ]; do
     --reviewer-provider=*) REVIEWER_PROVIDER="${1#*=}" ;;
     --reviewer-model) shift; REVIEWER_MODEL="${1:-}" ;;
     --reviewer-model=*) REVIEWER_MODEL="${1#*=}" ;;
+    --sandbox-test-writer) SANDBOX_TEST_WRITER=1 ;;
+    --sandbox-docs) SANDBOX_DOCS=1 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown arg: $1" >&2; usage >&2; exit 2 ;;
   esac
@@ -84,15 +93,19 @@ CONFIG_PATH="$TARGET_DIR/opencode.json"
 # heredoc-fed node script so we don't have to escape JSON in bash, and so
 # the merge logic stays canonical (sorted keys, 2-space indent, trailing \n).
 node - "$TIER" "$PROVIDER" "$MODEL" "$CONFIG_PATH" "$FORCE" "$PRINT_ONLY" \
-     "$REVIEWER_TIER" "$REVIEWER_PROVIDER" "$REVIEWER_MODEL" <<'NODE'
+     "$REVIEWER_TIER" "$REVIEWER_PROVIDER" "$REVIEWER_MODEL" \
+     "$SANDBOX_TEST_WRITER" "$SANDBOX_DOCS" <<'NODE'
 const fs = require("node:fs");
 const [
   tier, providerArg, model, configPath, forceStr, printOnlyStr,
   reviewerTier, reviewerProviderArg, reviewerModel,
+  sandboxTestWriterStr, sandboxDocsStr,
 ] = process.argv.slice(2);
 const force = forceStr === "1";
 const printOnly = printOnlyStr === "1";
 const mixedMode = Boolean(reviewerTier && reviewerProviderArg && reviewerModel);
+const sandboxTestWriter = sandboxTestWriterStr === "1";
+const sandboxDocs = sandboxDocsStr === "1";
 
 // Canonical provider IDs. Detector emits user-friendly aliases; we accept both
 // and emit the canonical OpenCode/models.dev ID in the written config so model
@@ -397,6 +410,36 @@ if (mixedMode) {
   merged.agent = deepMerge(existing.agent || {}, {
     review: { model: reviewerFragment.model },
   });
+}
+
+// v0.10.1 Per-agent permission sandboxing. Each flag injects the canonical
+// permission.write pattern for that agent — deep-merged so it composes
+// with Mixed-Mode (--reviewer-*) and any user-set sibling fields. Patterns
+// derived from the most-cited community examples (joelhooks, ppries gists).
+if (sandboxTestWriter || sandboxDocs) {
+  const sandboxAdditions = {};
+  if (sandboxTestWriter) {
+    sandboxAdditions["test-writer"] = {
+      permission: {
+        write: {
+          "**/*.test.*": "allow",
+          "**/*.spec.*": "allow",
+          "*": "deny",
+        },
+      },
+    };
+  }
+  if (sandboxDocs) {
+    sandboxAdditions["docs"] = {
+      permission: {
+        write: {
+          "**/*.md": "allow",
+          "*": "deny",
+        },
+      },
+    };
+  }
+  merged.agent = deepMerge(merged.agent || existing.agent || {}, sandboxAdditions);
 }
 
 // Canonical key ordering for deterministic output (idempotency requirement).

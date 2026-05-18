@@ -716,6 +716,108 @@ console.log('ok');
   fi
 fi
 
+# --- v0.10.1 Per-agent permission sandboxing. May-2026 community-patterns
+# research: 9/15 surveyed opencode.json files use agent.<name>.permission.write
+# to scope which paths each agent can touch — test-writer locked to test files,
+# docs locked to .md, etc. Maps directly onto the wizard's SDLC steps.
+# configure-backend exposes the two highest-signal sandboxes as boolean flags
+# that inject canonical permission blocks; users wanting custom glob patterns
+# edit opencode.json directly.
+
+# --- T35: --sandbox-test-writer injects agent.test-writer.permission.write
+#         restricting writes to test/spec files only
+if [ -x "$CONFIG" ]; then
+  T="$TMP_ROOT/t35"; mkdir -p "$T"
+  (cd "$T" && "$CONFIG" \
+     --tier private_local --provider ollama --model qwen3-coder:30b \
+     --sandbox-test-writer >/dev/null 2>&1) || true
+  if [ -f "$T/opencode.json" ]; then
+    ok="$(node -e "
+const j=require('$T/opencode.json');
+const tw=j.agent && j.agent['test-writer'];
+if(!tw||!tw.permission||!tw.permission.write){console.log('missing-test-writer-perm');process.exit(1)}
+const w=tw.permission.write;
+if(w['**/*.test.*']!=='allow'){console.log('missing-test-allow');process.exit(1)}
+if(w['**/*.spec.*']!=='allow'){console.log('missing-spec-allow');process.exit(1)}
+if(w['*']!=='deny'){console.log('missing-default-deny');process.exit(1)}
+console.log('ok');
+" 2>/dev/null || echo 'failed')"
+    if [ "$ok" = "ok" ]; then
+      pass "--sandbox-test-writer injects canonical permission.write block"
+    else
+      fail "T35 — $ok"
+    fi
+  fi
+fi
+
+# --- T36: --sandbox-docs injects agent.docs.permission.write
+#         restricting writes to .md only
+if [ -x "$CONFIG" ]; then
+  T="$TMP_ROOT/t36"; mkdir -p "$T"
+  (cd "$T" && "$CONFIG" \
+     --tier private_local --provider ollama --model qwen3-coder:30b \
+     --sandbox-docs >/dev/null 2>&1) || true
+  if [ -f "$T/opencode.json" ]; then
+    ok="$(node -e "
+const j=require('$T/opencode.json');
+const d=j.agent && j.agent.docs;
+if(!d||!d.permission||!d.permission.write){console.log('missing-docs-perm');process.exit(1)}
+const w=d.permission.write;
+if(w['**/*.md']!=='allow'){console.log('missing-md-allow');process.exit(1)}
+if(w['*']!=='deny'){console.log('missing-default-deny');process.exit(1)}
+console.log('ok');
+" 2>/dev/null || echo 'failed')"
+    if [ "$ok" = "ok" ]; then
+      pass "--sandbox-docs injects canonical permission.write block"
+    else
+      fail "T36 — $ok"
+    fi
+  fi
+fi
+
+# --- T37: both sandboxes compose, plus Mixed-Mode reviewer — full v0.10.x
+#         hybrid in one invocation
+if [ -x "$CONFIG" ]; then
+  T="$TMP_ROOT/t37"; mkdir -p "$T"
+  (cd "$T" && "$CONFIG" \
+     --tier proprietary --provider anthropic --model claude-opus-4-7 \
+     --reviewer-tier hosted_oss --reviewer-provider cerebras --reviewer-model gpt-oss-120b \
+     --sandbox-test-writer --sandbox-docs >/dev/null 2>&1) || true
+  if [ -f "$T/opencode.json" ]; then
+    ok="$(node -e "
+const j=require('$T/opencode.json');
+if(j.agent.review.model!=='cerebras/gpt-oss-120b'){console.log('reviewer-wrong');process.exit(1)}
+if(!j.agent['test-writer'].permission.write['**/*.test.*']){console.log('missing-tw-sandbox');process.exit(1)}
+if(!j.agent.docs.permission.write['**/*.md']){console.log('missing-docs-sandbox');process.exit(1)}
+console.log('ok');
+" 2>/dev/null || echo 'failed')"
+    if [ "$ok" = "ok" ]; then
+      pass "v0.10.x hybrid: reviewer + test-writer sandbox + docs sandbox compose"
+    else
+      fail "T37 — $ok"
+    fi
+  fi
+fi
+
+# --- T38: sandbox flags absent → no agent.test-writer / agent.docs blocks
+#         (regression guard — sandbox is opt-in only)
+if [ -x "$CONFIG" ]; then
+  T="$TMP_ROOT/t38"; mkdir -p "$T"
+  (cd "$T" && "$CONFIG" --tier private_local --provider ollama --model qwen3-coder:30b >/dev/null 2>&1) || true
+  if [ -f "$T/opencode.json" ]; then
+    ok="$(node -e "
+const j=require('$T/opencode.json');
+if(j.agent && (j.agent['test-writer']||j.agent.docs)){console.log('unexpected-agent-block');process.exit(1)}
+console.log('ok');
+" 2>/dev/null || echo 'failed')"
+    if [ "$ok" = "ok" ]; then
+      pass "no sandbox flags → no test-writer/docs agent blocks (opt-in only)"
+    else
+      fail "T38 — $ok"
+    fi
+  fi
+fi
+
 echo ""
 echo "=== Results: $PASS passed, $FAIL failed ==="
 [ "$FAIL" -eq 0 ] || exit 1

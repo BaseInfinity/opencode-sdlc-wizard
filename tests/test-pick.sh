@@ -334,6 +334,71 @@ if [ -x "$SCRIPT" ]; then
   fi
 fi
 
+# v0.10.1 sandbox passthrough — pick must forward --sandbox-test-writer and
+# --sandbox-docs to configure-backend without modification.
+
+# T19: --sandbox-test-writer passthrough
+if [ -x "$SCRIPT" ]; then
+  T="$TMP_ROOT/t19"; make_target "$T" "private_local/ollama"
+  DETECT_STUB_LOG="$T/detect.log"
+  CONFIGURE_STUB_LOG="$T/configure.log"
+  (DETECT_STUB_LOG="$DETECT_STUB_LOG" CONFIGURE_STUB_LOG="$CONFIGURE_STUB_LOG" \
+   PATH="$T/stubs:$PATH" "$SCRIPT" --sandbox-test-writer >/dev/null 2>&1) || true
+  if [ -f "$CONFIGURE_STUB_LOG" ] && grep -q -- "--sandbox-test-writer" "$CONFIGURE_STUB_LOG"; then
+    pass "--sandbox-test-writer passes through to configure-backend"
+  else
+    fail "--sandbox-test-writer was dropped"
+  fi
+fi
+
+# T20: --sandbox-docs passthrough
+if [ -x "$SCRIPT" ]; then
+  T="$TMP_ROOT/t20"; make_target "$T" "private_local/ollama"
+  DETECT_STUB_LOG="$T/detect.log"
+  CONFIGURE_STUB_LOG="$T/configure.log"
+  (DETECT_STUB_LOG="$DETECT_STUB_LOG" CONFIGURE_STUB_LOG="$CONFIGURE_STUB_LOG" \
+   PATH="$T/stubs:$PATH" "$SCRIPT" --sandbox-docs >/dev/null 2>&1) || true
+  if [ -f "$CONFIGURE_STUB_LOG" ] && grep -q -- "--sandbox-docs" "$CONFIGURE_STUB_LOG"; then
+    pass "--sandbox-docs passes through to configure-backend"
+  else
+    fail "--sandbox-docs was dropped"
+  fi
+fi
+
+# T21: sandbox flags compose with Mixed-Mode reviewer in one pick invocation
+if [ -x "$SCRIPT" ]; then
+  T="$TMP_ROOT/t21"; make_target "$T" "private_local/ollama"
+  DETECT_STUB_LOG="$T/detect.log"
+  CONFIGURE_STUB_LOG="$T/configure.log"
+  (DETECT_STUB_LOG="$DETECT_STUB_LOG" CONFIGURE_STUB_LOG="$CONFIGURE_STUB_LOG" \
+   PATH="$T/stubs:$PATH" "$SCRIPT" \
+     --reviewer-tier hosted_oss --reviewer-provider cerebras \
+     --sandbox-test-writer --sandbox-docs >/dev/null 2>&1) || true
+  if [ -f "$CONFIGURE_STUB_LOG" ] \
+     && grep -q -- "--reviewer-provider cerebras" "$CONFIGURE_STUB_LOG" \
+     && grep -q -- "--sandbox-test-writer" "$CONFIGURE_STUB_LOG" \
+     && grep -q -- "--sandbox-docs" "$CONFIGURE_STUB_LOG"; then
+    pass "v0.10.x hybrid: --reviewer-* + --sandbox-* compose in one pick call"
+  else
+    fail "compose failure — reviewer or sandbox args missing"
+    cat "$CONFIGURE_STUB_LOG" 2>/dev/null | head -3 >&2 || true
+  fi
+fi
+
+# T22: no sandbox flags → no sandbox args forwarded (regression guard)
+if [ -x "$SCRIPT" ]; then
+  T="$TMP_ROOT/t22"; make_target "$T" "private_local/ollama"
+  DETECT_STUB_LOG="$T/detect.log"
+  CONFIGURE_STUB_LOG="$T/configure.log"
+  (DETECT_STUB_LOG="$DETECT_STUB_LOG" CONFIGURE_STUB_LOG="$CONFIGURE_STUB_LOG" \
+   PATH="$T/stubs:$PATH" "$SCRIPT" >/dev/null 2>&1) || true
+  if [ -f "$CONFIGURE_STUB_LOG" ] && ! grep -q -- "--sandbox-" "$CONFIGURE_STUB_LOG"; then
+    pass "pick without --sandbox-* flags does NOT forward sandbox args"
+  else
+    fail "pick leaked --sandbox-* args to configure"
+  fi
+fi
+
 echo ""
 echo "=== Results: $PASS passed, $FAIL failed ==="
 [ "$FAIL" -eq 0 ] || exit 1
