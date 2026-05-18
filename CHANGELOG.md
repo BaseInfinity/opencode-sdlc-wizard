@@ -2,6 +2,39 @@
 
 All notable changes to opencode-sdlc-wizard.
 
+## [0.10.6] - 2026-05-18
+
+### Changed — `docs/cost-ladder.md` recalibration sweep
+
+Doc-only refresh aligning the cost-ladder's example model IDs and
+pricing notes with the v0.9.1 – v0.10.5 picker default changes plus
+May-17 research findings.
+
+**$20/mo path:**
+- `gpt-5.5` → `gpt-5.3-codex` (verified shipped Feb 2026; most-pinned reviewer in surveyed configs)
+- `deepseek-chat` → `deepseek-v4-flash` (V4 family shipped April 2026)
+- CI gate slot: removed "Groq still ships Llama 3.3 70B; Cerebras dropped it" qualifier — both providers now host `gpt-oss-120b` (the v0.10.3 picker default)
+- **Added Z.AI GLM Coding Plan** as a third Coder (alt) option with current quarterly pricing: $10/mo or $30/quarter or $80/year. The previously cited flat $18/mo SKU was retired in the May 2026 pricing restructure (research finding).
+
+**$200/mo path:**
+- `gpt-5.5` xhigh → `gpt-5.3-codex` xhigh (both Coder alt + Reviewer slots)
+- CI gate slot: same cleanup as $20/mo path
+
+**Footer:**
+- Calibration date bumped to 2026-05-18.
+- Prior calibration (2026-05-05 for v0.8.1) preserved for audit trail.
+
+### Not changed (intentionally)
+
+- `claude-sonnet-4.6` ($20/mo Coder) and `claude-opus-4.7` ($200/mo Coder) unchanged — Sonnet 4.6 / Opus 4.7 are still current Anthropic frontier (Sonnet 4.7 / Opus 4.8 not yet shipped per May-17 research).
+- `gemini-2.5-flash` in the $0/mo Coder slot left as-is — Gemini 3.1 Pro (the v0.10.2 picker default) is the paid Pro tier; 2.5-flash is still the free-tier model that fits a $0/mo budget.
+- Calibration history block (model ID drift across v0.8.x) left intact as audit trail.
+- No code or test changes. All 375 tests still pass unchanged.
+
+### Why this matters
+
+`docs/cost-ladder.md` is the public-facing budget guide users hit when planning their OpenCode setup. Drift here costs trust faster than drift in any code surface — the v0.10.x picker now ships canonical defaults that didn't exist when this doc was first calibrated.
+
 ## [0.10.5] - 2026-05-18
 
 ### Added — `--sandbox-plan` (plan-mode tool denial)

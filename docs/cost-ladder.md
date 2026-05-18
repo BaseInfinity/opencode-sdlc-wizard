@@ -118,10 +118,11 @@ ceiling matters, free for the rest.
 | Slot | Provider | Model | Cost | Why |
 |------|----------|-------|------|-----|
 | Coder | Anthropic Claude (Pro) | `claude-sonnet-4.6` | $20/mo Pro sub or ~$3/M in via API | Best instruction-following + tool-use |
-| Coder (alt) | OpenAI Plus | `gpt-5.5` | $20/mo Plus sub | Strong reasoning, especially with xhigh effort |
-| Reviewer | Cerebras free / Groq free | `gpt-oss-120b` (Cerebras) or `llama-3.3-70b-versatile` (Groq) | $0 | Cheap second opinion |
-| Reviewer (alt) | DeepSeek direct | `deepseek-chat` | ~$0.14/M in cache-miss (pennies/review) — verify current pricing | Strong OSS reasoning, cheapest hosted |
-| Reviewer (high-stakes) | Codex via API | `gpt-5.5` xhigh | ~$1-3 per review at xhigh | When release-critical |
+| Coder (alt) | OpenAI Plus | `gpt-5.3-codex` | $20/mo Plus sub | Strong reasoning, especially with xhigh effort |
+| Coder (alt) | **Z.AI GLM Coding Plan** | `glm-5.1` | $10/mo (or $30/quarter, $80/year — quarterly restructure May 2026; no flat-$18 SKU anymore) | Post-Anthropic-OAuth-ban migration target; verify at <https://z.ai/subscribe> |
+| Reviewer | Cerebras free / Groq free | `gpt-oss-120b` | $0 | Cheap second opinion; both Cerebras + Groq host gpt-oss-120b |
+| Reviewer (alt) | DeepSeek direct | `deepseek-v4-flash` | ~$0.14/M in cache-miss (pennies/review) — verify current pricing | Strong OSS reasoning, cheapest hosted, V4 family shipped Apr 2026 |
+| Reviewer (high-stakes) | Codex via API | `gpt-5.3-codex` xhigh | ~$1-3 per review at xhigh | When release-critical |
 
 ```bash
 # v0.10.0: Mixed-Mode in one shot via `pick` — coder + reviewer split
@@ -155,10 +156,10 @@ or anyone whose time is more valuable than tokens.
 | Slot | Provider | Model | Approx monthly | Why |
 |------|----------|-------|----------------|-----|
 | Coder | Anthropic | `claude-opus-4.7` | ~$100-150 | Highest ceiling, 1M context tier |
-| Coder (alt) | OpenAI | `gpt-5.5` xhigh | ~$80-130 | Strongest reasoning at xhigh effort |
-| Reviewer | Codex CLI (xhigh) | `gpt-5.5` | ~$30-50 | Cross-model review on every release |
+| Coder (alt) | OpenAI | `gpt-5.3-codex` xhigh | ~$80-130 | Strongest reasoning at xhigh effort |
+| Reviewer | Codex CLI (xhigh) | `gpt-5.3-codex` | ~$30-50 | Cross-model review on every release |
 | Reviewer (parallel) | DeepSeek direct | `deepseek-r1` | ~$10-20 | Cheap second-reviewer for triangulation |
-| CI gate | Groq free / Cerebras free | `llama-3.3-70b-versatile` (Groq) or `gpt-oss-120b` (Cerebras) | $0 | Fast PR-review loops, free tier |
+| CI gate | Groq free / Cerebras free | `gpt-oss-120b` (both providers) | $0 | Fast PR-review loops, free tier; v0.10.3 picker default |
 
 **The pattern that earns this budget:**
 - Three reviewers: codex (xhigh), DeepSeek-R1, plus the originating
@@ -221,5 +222,13 @@ alternatives) tend to hold longer than the absolute prices.
 - Together initial credit and Groq daily quota change frequently —
   always recheck.
 
-Last calibrated: 2026-05-05 (codex round-1 corrections applied for
-v0.8.1).
+Last calibrated: 2026-05-18 — v0.10.6 sweep. Refreshed `gpt-5.5` →
+`gpt-5.3-codex` (Feb 2026 release, most-pinned reviewer in surveyed
+configs), `deepseek-chat` → `deepseek-v4-flash` (V4 family April 2026),
+removed "Cerebras dropped llama-3.3-70b" qualifier from CI gate slot
+since both Cerebras and Groq host `gpt-oss-120b` (the v0.10.3 picker
+default). Added Z.AI GLM Coding Plan to $20/mo path with current
+quarterly pricing ($10/$30/$80 — no flat $18/mo SKU since May 2026
+restructure). Anthropic Sonnet 4.6 / Opus 4.7 unchanged.
+
+Prior calibration: 2026-05-05 (codex round-1 corrections for v0.8.1).
