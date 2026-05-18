@@ -2,6 +2,102 @@
 
 All notable changes to opencode-sdlc-wizard.
 
+## [0.13.0] - 2026-05-18
+
+### Added — `subscription` tier with GitHub Copilot Pro+
+
+Per the original May-2026 research, **Copilot Pro+ ($39/mo) is the
+ONLY subscription path that bridges Opus 4.7 + GPT-5.3-Codex into
+OpenCode** after Anthropic killed third-party OAuth in Jan/Feb 2026.
+v0.13.0 makes it a first-class tier.
+
+```bash
+npx opencode-sdlc-wizard pick --tier subscription --provider copilot
+# or:
+npx opencode-sdlc-wizard pick --tier subscription --provider github-copilot
+# then complete OAuth:
+opencode    # → /connect → github.com/login/device
+```
+
+Yields:
+
+```json
+{
+  "model": "github-copilot/claude-opus-4-7",
+  "provider": {}
+}
+```
+
+OpenCode's native `github-copilot` adapter handles the OAuth flow —
+**no API key in `opencode.json`**. Auth is completed once via the
+interactive `/connect` flow inside OpenCode and persisted to user
+state, not the project config.
+
+### Verified live (OpenCode providers docs, fetched 2026-05-18)
+
+- **Canonical provider id**: `github-copilot`
+- **Auth**: OAuth device flow (`/connect` → `github.com/login/device`)
+- **No env var** — wizard's detector can't auto-trigger this tier
+  (user must pass `--tier subscription --provider copilot` explicitly)
+- **Default model**: `claude-opus-4-7` (Pro+ unlocks Opus + GPT-5.3-Codex)
+- **Aliases**: `copilot`, `github_copilot`, `gh-copilot`, `gh_copilot` → `github-copilot`
+
+### New 6th tier — `subscription`
+
+| Tier | Auth |
+|---|---|
+| `private_local` | none (local runtime) |
+| `enterprise` | tenant credentials (Azure / Bedrock) |
+| `hosted_oss` | API key (per-provider env var) |
+| `managed` | API key (`OPENCODE_ZEN_API_KEY`) |
+| `proprietary` | API key (per-vendor env var) |
+| **`subscription`** | **OAuth (no env var)** |
+
+`subscription` is the first tier where auth doesn't live in env vars
+or `opencode.json`. Wizard scaffolds the model pin; OpenCode handles
+the rest.
+
+### Changed
+
+- `scripts/configure-backend.sh`:
+  - 5 new `PROVIDER_ALIASES` entries (`copilot` / `github_copilot` /
+    `github-copilot` / `gh_copilot` / `gh-copilot` → `github-copilot`)
+  - `fragmentFor` new `subscription/github-copilot` case — model pin
+    only, empty `provider: {}` block (OAuth-managed native adapter)
+- `scripts/pick-backend.sh`:
+  - `default_model_for()` new `subscription/github-copilot` and 4
+    aliases → `claude-opus-4-7` entry
+- `scripts/detect-backends.sh`:
+  - New `subscription.github-copilot` JSON output entry with
+    `auth: "oauth"` + `setup: "opencode /connect → github.com/login/device"`
+    hints. `key_set: false` always (no env var to probe).
+  - Cascades unchanged — subscription tier requires explicit opt-in.
+- `AGENTS.md`: tier table gains a `subscription` row.
+
+### Tests
+
+- `tests/test-backend-picker.sh` adds T70–T72:
+  - T70: configure-backend writes Copilot pin with **no apiKey/baseURL**
+    (provider block is empty per OAuth-managed shape)
+  - T71: alias resolution sweep (4 aliases tested in a loop)
+  - T72: detector emits `subscription.github-copilot` block with OAuth
+    setup hints (no env var probe; documents the manual setup path)
+- `tests/test-pick.sh` T12 default-model drift gate gains
+  `subscription/github-copilot:claude` entry
+- **407 tests across 12 suites** (was 400 / 12 in v0.12.0)
+
+### Why minor bump (v0.12.x → v0.13.0)
+
+Sixth tier in the detector JSON output. New auth shape (OAuth instead
+of env var) — the first time `provider: {}` is the correct block for
+a provider. User-visible enough to warrant the minor.
+
+### Compat
+
+- 17 of 17 v0.12.0 default-model entries unchanged.
+- Cascade recommendations unchanged — subscription tier is opt-in only.
+- `provider: {}` in the emitted `opencode.json` is intentional — `deepMerge` treats it as a no-op against existing provider blocks, so a user's prior `provider.anthropic` (etc.) survives a pick into the subscription tier.
+
 ## [0.12.0] - 2026-05-18
 
 ### Added — `managed` tier with OpenCode Zen as 5th privacy tier

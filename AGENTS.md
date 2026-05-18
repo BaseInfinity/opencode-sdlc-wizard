@@ -83,6 +83,7 @@ Tiers (privacy-first ordering):
 | `hosted_oss` | Open weights, third-party host | Together, Groq, OpenRouter, Cerebras, DeepSeek direct, NVIDIA NIM (`nvidia_nim`) |
 | `proprietary` | Vendor-bound | Anthropic, OpenAI, Google AI Studio (`google_aistudio` — Gemini), Z.AI (`zai` — GLM Coding Plan, post-Anthropic-OAuth-ban migration target) |
 | `managed` | OpenCode-routed PAYG | OpenCode Zen (`opencode` — 40+ models incl. free tier; official new-user entry point) |
+| `subscription` | Pre-paid sub via OAuth | GitHub Copilot Pro+ (`github-copilot` — only sub path to Opus 4.7 + GPT-5.3-Codex in OpenCode post-Anthropic-OAuth-ban; auth via `opencode /connect`) |
 
 See [`docs/cost-ladder.md`](docs/cost-ladder.md) for $0/$20/$200 monthly
 budget paths and a per-job picker (routine fix vs long-context refactor

@@ -1,6 +1,6 @@
 {
   "name": "opencode-sdlc-wizard",
-  "version": "0.12.0",
+  "version": "0.13.0",
   "description": "SDLC enforcement for OpenCode CLI — privacy-first, any-backend portability with a four-tier backend picker plus an OSS-tier cross-model-review skill so the full SDLC loop can run with zero Anthropic+OpenAI lock-in. Ships JSON Schemas for review artifacts so any consumer (cross-model-review, ditto, CI) can validate. Install with `npx opencode-sdlc-wizard init`. Sibling of agentic-sdlc-wizard and codex-sdlc-wizard.",
   "bin": {
     "opencode-sdlc-wizard": "cli/bin/opencode-sdlc-wizard.js"
