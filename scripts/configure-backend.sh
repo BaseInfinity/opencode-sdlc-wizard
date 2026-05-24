@@ -8,7 +8,9 @@
 #   hosted_oss      together / groq / openrouter / cerebras / deepseek / nvidia_nim
 #   proprietary     anthropic / openai / google_aistudio / zai
 #   managed         opencode (OpenCode Zen — vendor-routed PAYG over 40+ models)
-#   subscription    github-copilot (Copilot Pro+ — bridges to Opus 4.7 / GPT-5.3-Codex via OAuth)
+#   subscription    github-copilot (Copilot Pro+ — Opus 4.7 / GPT-5.3-Codex via OAuth)
+#                   openai (ChatGPT Plus/Pro — OpenCode native OAuth, restored v1.15.7)
+#                   xai (SuperGrok — OpenCode native OAuth, added v1.15.7)
 #
 # Usage:
 #   configure-backend.sh --tier <tier> --provider <provider> --model <model>
@@ -280,6 +282,22 @@ const PROVIDER_ALIASES = {
   "github-copilot": "github-copilot",
   gh_copilot: "github-copilot",
   "gh-copilot": "github-copilot",
+  // v0.13.2: ChatGPT Plus/Pro OAuth — OpenCode v1.15.7 restored native
+  // OpenAI OAuth. Provider id is still "openai" (same as the API-key
+  // path), but the subscription tier writes an empty provider block
+  // so the OAuth flow handles auth. Distinct WIZARD-level tier choice
+  // from proprietary/openai (API key path).
+  "openai-codex": "openai",
+  chatgpt: "openai",
+  "chatgpt-plus": "openai",
+  "chatgpt-pro": "openai",
+  // v0.13.2: SuperGrok OAuth — OpenCode v1.15.7 added native xAI OAuth.
+  // Provider id is "xai" per OpenCode's docs. Aliases mirror the
+  // chatgpt-* pattern.
+  grok: "xai",
+  xai: "xai",
+  supergrok: "xai",
+  "super-grok": "xai",
 };
 const provider = PROVIDER_ALIASES[providerArg] || providerArg;
 
@@ -536,6 +554,24 @@ function fragmentFor(tier, provider, model) {
       // github.com/login/device to complete first-time auth.
       return {
         model: `github-copilot/${model}`,
+        provider: {},
+      };
+    case "subscription/openai":
+      // ChatGPT Plus/Pro OAuth — OpenCode v1.15.7 restored native OpenAI
+      // OAuth flow. Same `openai` provider id as the API-key path, but
+      // wizard's subscription tier emits an empty provider block so the
+      // OAuth flow is the auth path. User completes via /connect →
+      // browser-based OpenAI login.
+      return {
+        model: `openai/${model}`,
+        provider: {},
+      };
+    case "subscription/xai":
+      // SuperGrok OAuth — OpenCode v1.15.7 added native xAI OAuth.
+      // Device-code flow available for headless setups. Same shape as
+      // the other subscription tier providers: model pin only.
+      return {
+        model: `xai/${model}`,
         provider: {},
       };
     default:

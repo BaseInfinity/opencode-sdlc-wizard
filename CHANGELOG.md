@@ -2,6 +2,110 @@
 
 All notable changes to opencode-sdlc-wizard.
 
+## [0.13.2] - 2026-05-24
+
+### Added — Two new OAuth subscription providers + Z.AI default bump
+
+Driven by a fresh community + OpenCode-changelog sweep (2026-05-24).
+OpenCode shipped **v1.15.5 → v1.15.10** in the week since v0.13.1:
+**v1.15.7 restored native OpenAI OAuth + added native xAI OAuth**. The
+wizard's `subscription` tier now reflects both.
+
+```bash
+# ChatGPT Plus/Pro sub:
+npx opencode-sdlc-wizard pick --tier subscription --provider chatgpt
+
+# SuperGrok sub:
+npx opencode-sdlc-wizard pick --tier subscription --provider grok
+
+# Existing Copilot Pro+ still works:
+npx opencode-sdlc-wizard pick --tier subscription --provider copilot
+```
+
+### New provider entries
+
+| Tier / Provider | Default model | OAuth path |
+|---|---|---|
+| `subscription / openai-codex` (a.k.a. `chatgpt`, `chatgpt-plus`, `chatgpt-pro`) | `gpt-5.3-codex` | `opencode /connect` → browser OpenAI login |
+| `subscription / grok` (a.k.a. `xai`, `supergrok`, `super-grok`) | `grok-4.3` | `opencode /connect` → browser xAI login OR device-code |
+
+Both follow the same shape as v0.13.0's GitHub Copilot integration:
+**model pin only, empty `provider: {}` block** because OpenCode's native
+adapter handles the OAuth flow + token persistence. Wizard scaffolds
+the model choice; user runs `opencode /connect` once to authenticate.
+
+### Changed — Z.AI default model bump
+
+`proprietary/zai` default: `glm-4.6` → **`glm-5.1`** per Z.AI's own
+docs (`docs.z.ai/llms.txt`: "Use GLM models like GLM-5.1 & GLM-5-Turbo
+for AI coding"). Trusting official provider guidance over the May-24
+research's `glm-4.7` suggestion (community-frequency claim) — provider
+docs are the authoritative source for default-model picks.
+
+PRIVACY.md walkthrough example bumped to match.
+
+### Verified live (OpenCode docs + provider docs, fetched 2026-05-24)
+
+- **OpenCode v1.15.7 changelog**: native OpenAI OAuth restored; xAI OAuth added
+- **OpenCode providers doc**: canonical IDs are `openai` (same id for both API-key and OAuth path) and `xai`
+- **xAI docs.x.ai/docs/models**: `grok-4.3` is flagship coding model ("most intelligent and fastest")
+- **Z.AI docs.z.ai/llms.txt**: GLM-5.1 listed + recommended for AI coding
+
+### Wizard tier-provider distinction note
+
+`subscription/openai-codex` and `proprietary/openai` both write
+`model: "openai/<m>"` but emit **different provider blocks**:
+
+| Tier | Provider block | Auth |
+|---|---|---|
+| `proprietary/openai` | `provider.openai.options.apiKey = {env:OPENAI_API_KEY}` | API key in env |
+| `subscription/openai-codex` | `provider: {}` (empty) | OAuth via `/connect` |
+
+The distinction is a wizard-level UX abstraction. OpenCode sees the
+same model pin either way — what differs is whether `opencode.json`
+carries an API key reference or defers entirely to OpenCode's OAuth
+state. This matches how Copilot's `github-copilot` provider works.
+
+### Changed
+
+- `scripts/configure-backend.sh`:
+  - 8 new `PROVIDER_ALIASES` entries (4 for ChatGPT family, 4 for Grok family)
+  - 2 new `fragmentFor` cases: `subscription/openai`, `subscription/xai` (both empty provider block)
+  - Header comment updated
+- `scripts/pick-backend.sh`:
+  - 2 new `default_model_for()` entries (+ aliases): `subscription/openai*` → `gpt-5.3-codex`, `subscription/xai|grok*` → `grok-4.3`
+  - Z.AI default updated to `glm-5.1`
+- `scripts/detect-backends.sh`:
+  - `subscription` JSON block grew from 1 entry to 3 (added `openai`, `xai`)
+  - Both new entries carry OAuth setup hints
+- `AGENTS.md`: subscription row in tier table lists all three providers
+- `PRIVACY.md`: subscription walkthrough table grew to 3 rows; configure examples for all three OAuth flows; Z.AI walkthrough bumped to glm-5.1
+
+### Tests
+
+- `tests/test-backend-picker.sh` adds T73–T77:
+  - T73: subscription/openai-codex writes openai pin + empty provider
+  - T74: subscription/grok writes xai pin + empty provider
+  - T75: ChatGPT alias sweep (4 aliases tested)
+  - T76: Grok alias sweep (3 aliases tested)
+  - T77: detector JSON exposes all three OAuth subscription providers
+- `tests/test-pick.sh` T12 default-model drift gate gains
+  `subscription/openai-codex:gpt` and `subscription/grok:grok` entries
+- **419 tests across 12 suites** (was 407 / 12 in v0.13.1)
+
+### Positioning note (no code change)
+
+OpenCode v1.15.6 added a **native subagent picker** to `opencode run`
+(interactive runtime agent selection). The wizard's `pick` subcommand
+is a **write-time backend configurator** — different scope, different
+phase. They don't conflict but the naming overlap is worth knowing.
+
+### Compat
+
+- 16 of 17 v0.13.1 default-model entries unchanged (only Z.AI bumped).
+- `glm-4.6` still works if passed explicitly via `--model glm-4.6`.
+- Cascade recommendations unchanged — subscription tier remains opt-in.
+
 ## [0.13.1] - 2026-05-18
 
 ### Changed — PRIVACY.md tier walkthroughs updated for the six-tier reality

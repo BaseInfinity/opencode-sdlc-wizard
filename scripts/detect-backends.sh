@@ -8,7 +8,8 @@
 #   "hosted_oss":     { together, groq, openrouter, cerebras, deepseek, nvidia_nim },
 #   "proprietary":    { anthropic, openai, google_aistudio, zai },
 #   "managed":        { opencode (OpenCode Zen) },
-#   "subscription":   { github-copilot — OAuth-managed, no auto-detect },
+#   "subscription":   { github-copilot, openai (ChatGPT Plus/Pro), xai (SuperGrok)
+#                       — all OAuth-managed, no auto-detect },
 #   "recommendation": "<tier>/<provider>"
 # }
 #
@@ -227,7 +228,9 @@ cat <<EOF
     "opencode": { "key_set": $M_OPENCODE_ZEN_SET, "env": "OPENCODE_ZEN_API_KEY" }
   },
   "subscription": {
-    "github-copilot": { "key_set": false, "env": null, "auth": "oauth", "setup": "opencode /connect → github.com/login/device" }
+    "github-copilot": { "key_set": false, "env": null, "auth": "oauth", "setup": "opencode /connect → github.com/login/device" },
+    "openai":         { "key_set": false, "env": null, "auth": "oauth", "setup": "opencode /connect → browser OpenAI login (ChatGPT Plus/Pro)" },
+    "xai":            { "key_set": false, "env": null, "auth": "oauth", "setup": "opencode /connect → browser xAI login (SuperGrok) or device-code" }
   },
   "recommendation": "$RECOMMENDATION"
 }
