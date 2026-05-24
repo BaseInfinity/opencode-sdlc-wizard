@@ -215,11 +215,20 @@ default_model_for() {
     proprietary/google_aistudio|proprietary/google|proprietary/gemini)
                                   echo "gemini-3.1-pro" ;;
     proprietary/zai|proprietary/z.ai|proprietary/z_ai|proprietary/glm)
-                                  echo "glm-4.6" ;;
+                                  # v0.13.2: bumped 4.6 → 5.1 per Z.AI's own docs
+                                  # ("Use GLM models like GLM-5.1 & GLM-5-Turbo for AI coding")
+                                  echo "glm-5.1" ;;
     managed/opencode|managed/opencode_zen|managed/opencode-zen|managed/zen)
                                   echo "gpt-5.5" ;;
     subscription/github-copilot|subscription/copilot|subscription/github_copilot|subscription/gh-copilot|subscription/gh_copilot)
                                   echo "claude-opus-4-7" ;;
+    subscription/openai|subscription/openai-codex|subscription/chatgpt|subscription/chatgpt-plus|subscription/chatgpt-pro)
+                                  # v0.13.2: ChatGPT Plus/Pro OAuth path (OpenCode v1.15.7)
+                                  echo "gpt-5.3-codex" ;;
+    subscription/xai|subscription/grok|subscription/supergrok|subscription/super-grok)
+                                  # v0.13.2: SuperGrok OAuth path (OpenCode v1.15.7)
+                                  # xAI's flagship coding model per docs.x.ai/docs/models
+                                  echo "grok-4.3" ;;
     *) return 1 ;;
   esac
 }

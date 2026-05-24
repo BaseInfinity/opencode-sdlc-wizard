@@ -248,7 +248,9 @@ for combo in \
     "proprietary/google_aistudio:gemini" \
     "proprietary/zai:glm" \
     "managed/opencode:gpt-5.5" \
-    "subscription/github-copilot:claude"; do
+    "subscription/github-copilot:claude" \
+    "subscription/openai-codex:gpt" \
+    "subscription/grok:grok"; do
   combo_pair="${combo%%:*}"
   expected_substr="${combo##*:}"
   T="$TMP_ROOT/t12-${combo_pair//\//-}"; make_target "$T" "private_local/ollama"

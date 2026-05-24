@@ -1605,6 +1605,116 @@ let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{
   fi
 fi
 
+# --- v0.13.2: ChatGPT Plus/Pro OAuth + SuperGrok OAuth as subscription
+# tier additions (OpenCode v1.15.7 restored OpenAI OAuth, added xAI OAuth).
+# Same shape as Copilot: empty provider block, OAuth-managed by OpenCode.
+
+# --- T73: subscription/openai-codex emits openai/<m> with empty provider block
+if [ -x "$CONFIG" ]; then
+  T="$TMP_ROOT/t73"; mkdir -p "$T"
+  (cd "$T" && "$CONFIG" --tier subscription --provider openai-codex --model "gpt-5.3-codex" >/dev/null 2>&1) || true
+  if [ -f "$T/opencode.json" ]; then
+    ok="$(node -e "
+const j=require('$T/opencode.json');
+if(j.model!=='openai/gpt-5.3-codex'){console.log('model-wrong:'+j.model);process.exit(1)}
+// Empty provider block — OAuth-managed, no apiKey in JSON.
+const block=j.provider && j.provider.openai;
+if(block && block.options && (block.options.apiKey || block.options.baseURL)){
+  console.log('unexpected-config-on-oauth-provider');process.exit(1);
+}
+console.log('ok');
+" 2>/dev/null || echo 'failed')"
+    if [ "$ok" = "ok" ]; then
+      pass "subscription/openai-codex writes openai pin with empty provider block (OAuth-managed)"
+    else
+      fail "T73 — $ok"
+    fi
+  fi
+fi
+
+# --- T74: subscription/grok emits xai/<m> with empty provider block
+if [ -x "$CONFIG" ]; then
+  T="$TMP_ROOT/t74"; mkdir -p "$T"
+  (cd "$T" && "$CONFIG" --tier subscription --provider grok --model "grok-4.3" >/dev/null 2>&1) || true
+  if [ -f "$T/opencode.json" ]; then
+    ok="$(node -e "
+const j=require('$T/opencode.json');
+if(j.model!=='xai/grok-4.3'){console.log('model-wrong:'+j.model);process.exit(1)}
+const block=j.provider && j.provider.xai;
+if(block && block.options && (block.options.apiKey || block.options.baseURL)){
+  console.log('unexpected-config-on-oauth-provider');process.exit(1);
+}
+console.log('ok');
+" 2>/dev/null || echo 'failed')"
+    if [ "$ok" = "ok" ]; then
+      pass "subscription/grok writes xai pin with empty provider block (OAuth-managed)"
+    else
+      fail "T74 — $ok"
+    fi
+  fi
+fi
+
+# --- T75: alias sweep for OpenAI subscription aliases
+for alias_id in chatgpt chatgpt-plus chatgpt-pro openai-codex; do
+  if [ -x "$CONFIG" ]; then
+    T="$TMP_ROOT/t75-${alias_id}"; mkdir -p "$T"
+    (cd "$T" && "$CONFIG" --tier subscription --provider "$alias_id" --model "gpt-5.3-codex" >/dev/null 2>&1) || true
+    if [ -f "$T/opencode.json" ]; then
+      ok="$(node -e "
+const j=require('$T/opencode.json');
+if(j.model!=='openai/gpt-5.3-codex'){console.log('alias-pin-wrong:'+j.model);process.exit(1)}
+console.log('ok');
+" 2>/dev/null || echo 'failed')"
+      if [ "$ok" = "ok" ]; then
+        pass "ChatGPT alias '$alias_id' resolves to canonical 'openai'"
+      else
+        fail "T75-$alias_id — $ok"
+      fi
+    fi
+  fi
+done
+
+# --- T76: alias sweep for Grok subscription aliases
+for alias_id in grok supergrok super-grok; do
+  if [ -x "$CONFIG" ]; then
+    T="$TMP_ROOT/t76-${alias_id}"; mkdir -p "$T"
+    (cd "$T" && "$CONFIG" --tier subscription --provider "$alias_id" --model "grok-4.3" >/dev/null 2>&1) || true
+    if [ -f "$T/opencode.json" ]; then
+      ok="$(node -e "
+const j=require('$T/opencode.json');
+if(j.model!=='xai/grok-4.3'){console.log('alias-pin-wrong:'+j.model);process.exit(1)}
+console.log('ok');
+" 2>/dev/null || echo 'failed')"
+      if [ "$ok" = "ok" ]; then
+        pass "Grok alias '$alias_id' resolves to canonical 'xai'"
+      else
+        fail "T76-$alias_id — $ok"
+      fi
+    fi
+  fi
+done
+
+# --- T77: detector JSON shape includes openai + xai under subscription
+if [ -x "$DETECT" ]; then
+  FAKE_HOME="$TMP_ROOT/t77-home"; mkdir -p "$FAKE_HOME"
+  ok="$(env -i HOME="$FAKE_HOME" PATH="/usr/bin:/bin" "$DETECT" 2>/dev/null | node -e "
+let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{
+  try{const j=JSON.parse(d);
+    if(!j.subscription.openai){console.log('missing-subscription-openai');process.exit(1)}
+    if(j.subscription.openai.auth!=='oauth'){console.log('openai-auth-wrong');process.exit(1)}
+    if(!j.subscription.xai){console.log('missing-subscription-xai');process.exit(1)}
+    if(j.subscription.xai.auth!=='oauth'){console.log('xai-auth-wrong');process.exit(1)}
+    if(!j.subscription['github-copilot']){console.log('missing-copilot');process.exit(1)}
+    console.log('ok');
+  }catch(e){console.log('parse-fail:'+e.message)}
+})" 2>/dev/null || echo 'failed')"
+  if [ "$ok" = "ok" ]; then
+    pass "detector JSON: subscription tier exposes openai + xai + github-copilot with OAuth hints"
+  else
+    fail "T77 — $ok"
+  fi
+fi
+
 echo ""
 echo "=== Results: $PASS passed, $FAIL failed ==="
 [ "$FAIL" -eq 0 ] || exit 1

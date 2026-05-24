@@ -196,7 +196,7 @@ Plus Z.AI GLM Coding Plan (post-Anthropic-OAuth-ban migration target):
 export ZAI_API_KEY="..."
 bash .opencode/scripts/configure-backend.sh \
      --tier proprietary --provider zai \
-     --model glm-4.6
+     --model glm-5.1
 ```
 
 ## `subscription` — OAuth-managed sub bridge (Copilot Pro+)
@@ -214,16 +214,27 @@ device-flow OAuth on first use.
 | Provider | Default model | Notes |
 |----------|---------------|-------|
 | GitHub Copilot (`github-copilot` / `copilot` / `gh-copilot`) | `claude-opus-4-7` | $39/mo for Pro+ unlocks Opus + GPT-5.3-Codex; auth via `/connect` in OpenCode |
+| **ChatGPT Plus/Pro** (`openai-codex` / `chatgpt` / `chatgpt-plus` / `chatgpt-pro`) | `gpt-5.3-codex` | OpenCode v1.15.7 restored native OpenAI OAuth; ChatGPT subscription bridges to coding models via browser login |
+| **SuperGrok** (`grok` / `xai` / `supergrok`) | `grok-4.3` | OpenCode v1.15.7 added native xAI OAuth (device-code flow available for headless); xAI's flagship coding model per their docs |
 
 ```bash
-# Scaffold the pin (no env var needed — wizard writes the model field):
+# GitHub Copilot Pro+ scaffold:
 bash .opencode/scripts/configure-backend.sh \
      --tier subscription --provider copilot \
      --model claude-opus-4-7
 
-# Complete OAuth (one-time per machine):
-opencode    # → /connect → search "GitHub Copilot" → enter the code
-            #   at github.com/login/device
+# ChatGPT Plus/Pro scaffold (v0.13.2):
+bash .opencode/scripts/configure-backend.sh \
+     --tier subscription --provider chatgpt \
+     --model gpt-5.3-codex
+
+# SuperGrok scaffold (v0.13.2):
+bash .opencode/scripts/configure-backend.sh \
+     --tier subscription --provider grok \
+     --model grok-4.3
+
+# Complete OAuth (one-time per machine, for any of the above):
+opencode    # → /connect → pick the provider → browser/device-code flow
 ```
 
 **Privacy positioning.** Prompts go to GitHub/Microsoft/OpenAI/Anthropic
