@@ -769,7 +769,15 @@ const existingFileContent = fs.existsSync(configPath)
 // that's an idempotent re-run, which should succeed silently. Without this
 // carve-out, a setup-wizard skill that calls configure-backend twice with the
 // same args would error on the second call.
-if (
+//
+// v0.13.3: only applies on the WRITE path. --print-only must be effect-free
+// AND inspection-free of the destination — `pick --dry-run` is the "show me
+// what would happen" path; tripping the guard there makes preview impossible
+// against any project that already has an opencode.json with a different
+// model pin. (E2E-consumption test surfaced this.)
+if (printOnly) {
+  process.stdout.write(out);
+} else if (
   !force &&
   typeof existing.model === "string" &&
   existing.model.length > 0 &&
@@ -779,10 +787,6 @@ if (
     `opencode.json already has model="${existing.model}". Re-run with --force to overwrite.\n`,
   );
   process.exit(4);
-}
-
-if (printOnly) {
-  process.stdout.write(out);
 } else if (existingFileContent === out) {
   // Idempotent no-op: file already matches canonical merged content. Don't
   // touch the filesystem (preserves mtime), exit 0.

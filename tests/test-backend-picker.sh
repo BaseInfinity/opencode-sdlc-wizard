@@ -1715,6 +1715,38 @@ let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{
   fi
 fi
 
+# --- v0.13.3 BUGFIX regression: --print-only must NOT trip the no-clobber guard
+# even when an existing opencode.json has a different model. Surfaced by the
+# E2E consumption test: `pick --dry-run` against a project with an existing
+# opencode.json (different model) was exiting 4 instead of printing the preview.
+# Read-only operation must stay read-only — and inspection-free of destination.
+if [ -x "$CONFIG" ]; then
+  T="$TMP_ROOT/t78"; mkdir -p "$T"
+  # Pre-seed opencode.json with a different model than what we'll dry-run pick
+  cat > "$T/opencode.json" <<'EOF'
+{
+  "model": "lmstudio/qwen2.5-coder-32b-instruct",
+  "provider": {
+    "lmstudio": { "options": { "baseURL": "http://127.0.0.1:1234/v1" } }
+  }
+}
+EOF
+  rc=0
+  out="$(cd "$T" && "$CONFIG" --tier proprietary --provider anthropic --model claude-opus-4-7 --print-only 2>&1)" || rc=$?
+  if [ "$rc" -eq 0 ] && echo "$out" | grep -q '"model": "anthropic/claude-opus-4-7"'; then
+    pass "--print-only prints preview even when existing opencode.json has different model (no-clobber bypass)"
+  else
+    fail "T78 — --print-only tripped no-clobber guard (rc=$rc)"
+    echo "$out" | head -3 >&2
+  fi
+  # File must NOT have been written
+  if grep -q "lmstudio" "$T/opencode.json"; then
+    pass "--print-only did NOT write the file (existing lmstudio config intact)"
+  else
+    fail "T78b — --print-only WROTE the file (destructive)"
+  fi
+fi
+
 echo ""
 echo "=== Results: $PASS passed, $FAIL failed ==="
 [ "$FAIL" -eq 0 ] || exit 1

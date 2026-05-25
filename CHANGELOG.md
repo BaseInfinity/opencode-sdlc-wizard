@@ -2,6 +2,87 @@
 
 All notable changes to opencode-sdlc-wizard.
 
+## [0.13.3] - 2026-05-24
+
+### Fixed — `--print-only` no longer trips the no-clobber guard
+
+Bug found by the new E2E consumption test (added this release): running
+`pick --dry-run` (translates to `configure-backend --print-only`)
+against a project that already has an `opencode.json` with a different
+model pin was exiting 4 ("opencode.json already has model=..., re-run
+with --force") **without printing the preview**.
+
+That's wrong. `--print-only` is a read-only operation — it should be
+inspection-free of the destination, not just write-free. The dry-run
+preview use case is "show me what the wizard *would* write if I picked
+this tier" — tripping the guard there makes the preview impossible
+exactly when it's most useful (deciding whether to overwrite an
+existing config).
+
+**Fix:** moved the no-clobber check inside the write branch.
+`--print-only` now prints the merged JSON unconditionally; `--force`
+gating only applies to actual file writes.
+
+- `scripts/configure-backend.sh`: no-clobber check moved out of the
+  pre-condition block into the write-path conditional
+- `tests/test-backend-picker.sh` adds T78/T78b:
+  - T78 asserts `--print-only` prints preview even against existing
+    differing opencode.json (no exit 4)
+  - T78b asserts the file was NOT modified (still read-only)
+
+### Added — `npm run test:e2e` consumption smoke test
+
+New `tests/test-e2e-consumption.sh` exercises the **published bundle**
+(via `npm pack` of current source by default; `E2E_SOURCE=npm-latest`
+overrides to live npm) end-to-end:
+
+- `npm pack` → install with `--package=<tarball>` into fresh tmp dir
+- Verify install delivered `pick-backend.sh` + `configure-backend.sh`
+  + `detect-backends.sh` + `.wizard-stamp`
+- `pick --dry-run` across **all 9 tier/provider combos** (private_local,
+  enterprise, hosted_oss, managed, proprietary x2, subscription x3)
+- Each emitted JSON parses cleanly; coder model + provider block shape
+  validated per tier
+- Full v0.13.x hybrid invocation (every flag in one call) emits valid
+  6-agent + 4-provider config
+- Optional `opencode debug config` check if CLI is on PATH
+
+Not in the default `npm test` chain because it takes ~30-60s (npm
+pack + install). Run explicitly:
+
+```bash
+npm run test:e2e                           # against local pack of current source
+E2E_SOURCE=npm-latest npm run test:e2e    # against live npm latest
+```
+
+**This test caught the T78 bug on first run.** That's exactly the
+value proposition — automating the consumption path surfaces
+regressions that source-layout unit tests can't reach (installer
+behavior + cross-script integration + real JSON shape under the
+installed `.opencode/` layout).
+
+### Changed — `tests/test-e2e-consumption.sh` design notes
+
+- Defaults to `E2E_SOURCE=local-pack` (uses `npm pack` of current repo);
+  override with `E2E_SOURCE=npm-latest` to verify what published to npm
+- Uses `npx --package=<tarball> opencode-sdlc-wizard init` to install
+  the packed tarball (vs `npx <tarball>` which sh tries to exec)
+- `pick --dry-run --target-dir <isolated-dir>` everywhere so the test
+  never accidentally inspects the caller's actual `opencode.json`
+
+### Tests
+
+- **421 tests across 12 unit suites + 13 E2E checks**
+  (was 419 / 12 in v0.13.2; +2 for T78/T78b no-clobber bypass)
+- E2E suite is `npm run test:e2e`, separate from `npm test`
+
+### Compat
+
+- Behavior change is bug-fix only: `--print-only` was failing where it
+  should have succeeded; now succeeds. No path that used to succeed now
+  fails. No flag/provider/tier additions.
+- 19 of 19 v0.13.2 default-model entries unchanged.
+
 ## [0.13.2] - 2026-05-24
 
 ### Added — Two new OAuth subscription providers + Z.AI default bump
