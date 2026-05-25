@@ -148,8 +148,10 @@ fi
 
 # 9. Next-steps hint stays current with the picker — must list every provider
 #    detect-backends.sh emits, plus --free-tier-first flag and cost-ladder ref.
-#    States-project-research consumption test (2026-05-06) caught the v0.2.0
-#    list still being printed after v0.8.0 added 5 providers.
+#    Project-tracker consumption test (2026-05-25, v0.13.4 finding) caught
+#    the v0.10.x list still being printed after v0.11/v0.12/v0.13 added
+#    zai, managed/opencode, and the entire subscription tier (Copilot,
+#    ChatGPT, Grok). Same drift pattern as the v0.8.0→v0.8.4 finding.
 target="$(mk_target)"
 out="$(bash "$INSTALLER" --target-dir "$target" 2>&1)"
 missing=""
@@ -157,7 +159,10 @@ for token in \
     "ollama" "lm_studio" "llama.cpp" "vllm" "mlx" \
     "azure" "bedrock" \
     "together" "groq" "openrouter" "cerebras" "deepseek" "nvidia" \
-    "anthropic" "openai" "google" \
+    "anthropic" "openai" "google" "zai" \
+    "managed" "opencode" \
+    "subscription" "github-copilot" "chatgpt" "grok" \
+    "pick" \
     "--free-tier-first" \
     "cost-ladder.md"; do
     if ! echo "$out" | grep -qi -- "$token"; then
@@ -165,7 +170,7 @@ for token in \
     fi
 done
 if [ -z "$missing" ]; then
-    pass "next-steps hint mentions all picker providers + flag + cost-ladder ref"
+    pass "next-steps hint mentions all 6 tiers + all providers + pick subcommand + flag + cost-ladder"
 else
     fail "next-steps hint missing tokens:$missing"
 fi

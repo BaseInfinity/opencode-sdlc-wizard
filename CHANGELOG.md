@@ -2,6 +2,65 @@
 
 All notable changes to opencode-sdlc-wizard.
 
+## [0.13.4] - 2026-05-25
+
+### Fixed — `install.sh` next-steps drift (v0.11 / v0.12 / v0.13 additions missing)
+
+**Found by real consumption** (`npx opencode-sdlc-wizard@latest init` in
+`~/project-tracker`). install.sh's printed next-steps still showed the
+v0.10.x tier list, missing every v0.11/v0.12/v0.13 addition:
+
+- `proprietary/zai` (v0.11.0)
+- `managed/opencode` (v0.12.0 — entire 5th tier)
+- `subscription/{github-copilot, chatgpt, grok}` (v0.13.0 + v0.13.2 — entire 6th tier)
+
+And **never mentioned the `pick` subcommand at all** (shipped v0.9.0!).
+Every consumer reaching for the wizard via `npx ... init` was being
+onboarded to the pre-v0.9.0 two-step UX. Three minor versions of
+documented features invisible to new users.
+
+Same drift pattern as v0.8.0 → v0.8.4. Same root cause (install.sh
+next-steps hand-edited, not auto-derived). Recurred because the prior
+drift gate only checked provider tokens, not tier-table coverage or
+the `pick` mention.
+
+### install.sh changes
+
+- Promoted `npx opencode-sdlc-wizard pick` as the **primary** flow
+  (4 example invocations: auto, free-tier-first, override, dry-run)
+- Two-step `detect + configure` listed as the explicit alternative
+- Added `managed` + `subscription` rows + `zai` provider
+- Added a per-agent routing example with `--reviewer-*` + `--sandbox-*`
+
+### Tests
+
+- `tests/test-install.sh` T9 drift gate strengthened: now asserts
+  `zai`, `managed`, `opencode`, `subscription`, `github-copilot`,
+  `chatgpt`, `grok`, and the word `pick` all appear in next-steps.
+  421/12 unit suites + 13/13 E2E green.
+
+### Compat
+
+- Doc-only fix in install.sh. No code or behavior changes elsewhere.
+- Every flag, provider, tier, default-model unchanged from v0.13.3.
+
+### Workflow insight
+
+Two consumption-test bugs in a row (T78 no-clobber in v0.13.3, this
+next-steps drift in v0.13.4) **both invisible to 421 unit tests**.
+Each test exercised a script in isolation; neither inspected install.sh's
+printed onboarding text or pick-against-existing-config behavior.
+
+**Going forward** — after any release adding a tier / provider /
+default-model entry:
+
+```bash
+npm run test:e2e                                              # local-pack smoke
+cd ~/some-real-project && npx opencode-sdlc-wizard@latest init  # real onboard
+```
+
+60 seconds to catch what unit tests miss.
+
 ## [0.13.3] - 2026-05-24
 
 ### Fixed — `--print-only` no longer trips the no-clobber guard
