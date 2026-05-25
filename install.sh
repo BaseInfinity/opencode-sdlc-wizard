@@ -228,9 +228,13 @@ Next steps:
   1. Open OpenCode in this directory. AGENTS.md will be auto-loaded.
   2. The plugin (.opencode/plugins/sdlc-wizard.js) auto-loads at session start
      and shells out to .opencode/hooks/ for SDLC enforcement.
-  3. (Optional) Pick a backend — privacy-first picker:
-       bash .opencode/scripts/detect-backends.sh                    # what's available
-       bash .opencode/scripts/detect-backends.sh --free-tier-first  # bias to free tiers
+  3. (Optional) Pick a backend — one-shot:
+       npx opencode-sdlc-wizard pick                       # auto-pick highest-privacy
+       npx opencode-sdlc-wizard pick --free-tier-first     # bias to free tiers
+       npx opencode-sdlc-wizard pick --tier T --provider P # override
+       npx opencode-sdlc-wizard pick --dry-run             # preview, don't write
+     Or the underlying two-step (what \`pick\` orchestrates):
+       bash .opencode/scripts/detect-backends.sh
        bash .opencode/scripts/configure-backend.sh \\
             --tier private_local --provider ollama \\
             --model qwen3-coder:30b
@@ -238,7 +242,15 @@ Next steps:
        private_local: ollama / lm_studio / llama.cpp / vllm / mlx
        enterprise:    azure_openai / aws_bedrock
        hosted_oss:    together / groq / openrouter / cerebras / deepseek / nvidia_nim
-       proprietary:   anthropic / openai / google_aistudio
+       managed:       opencode (Zen — PAYG, free tier; official new-user entry)
+       proprietary:   anthropic / openai / google_aistudio / zai
+       subscription:  github-copilot / chatgpt / grok  (all OAuth via \`opencode /connect\`)
+     For per-agent routing (planner / reviewer / security / small_model)
+     plus permission sandboxes, see the same \`pick\` flags — e.g.
+       npx opencode-sdlc-wizard pick \\
+            --tier proprietary --provider anthropic \\
+            --reviewer-tier hosted_oss --reviewer-provider cerebras \\
+            --sandbox-test-writer --sandbox-docs
      Cost guidance for each path: docs/cost-ladder.md (\$0 / \$20 / \$200 monthly
      budgets, per-job picker, capability-floor table).
   4. Run skill({ name: "sdlc" }) inside OpenCode to invoke the SDLC workflow.
